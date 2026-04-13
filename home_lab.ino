@@ -16,9 +16,10 @@ extern "C" {
 #define PIR_PIN D6
 
 const char* ssid = "StackPebbles";
-const char* password = "pebbles@133";
-const char* supabaseUrl = "https://qzhgdrwcxryfeiwojctw.supabase.co/rest/v1/room_monitor";
-const char* supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6aGdkcndjeHJ5ZmVpd29qY3R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjE5ODIsImV4cCI6MjA5MTQ5Nzk4Mn0.FT066aNK7OkRkSN7grghmMKRkjxFjG58b4T_TGtI7OU";
+const char* password = "dont-look-here";
+// Intentialy makein
+const char* supabaseUrl = "";
+const char* supabaseKey = "";
 DHT dht(DHTPIN, DHTTYPE);
 ESP8266WebServer server(80);
 
