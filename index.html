@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Room Monitor</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
-  onload="window.__sbLoaded = true"
-  onerror="window.__sbError = 'Failed to load Supabase CDN'"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
@@ -718,9 +715,7 @@
 
 <script>
 /* ==================== CONFIG ==================== */
-const SUPABASE_URL      = 'https://qzhgdrwcxryfeiwojctw.supabase.co';
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6aGdkcndjeHJ5ZmVpd29qY3R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjE5ODIsImV4cCI6MjA5MTQ5Nzk4Mn0.FT066aNK7OkRkSN7grghmMKRkjxFjG58b4T_TGtI7OU";
-const TABLE             = 'room_monitor';
+const API_BASE          = 'https://home-lab-api.ahmadmahmood296.workers.dev';
 
 const RANGES = {
   '1h':  { ms: 1*60*60*1000,    bucketMin: 0,   label: 'last hour' },
@@ -743,7 +738,7 @@ const MOTION_OCCUPIED_MS = 2 * 60 * 1000;
 
 /* ==================== STATE ==================== */
 let currentRange = '6h';
-let supabase, charts = {};
+let charts = {};
 let recentRows = [];
 let lastMotionTime = null;
 let motionTickerInterval = null;
@@ -782,6 +777,20 @@ function durationStr(ms) {
   const mins = totalMin % 60;
   if (hrs > 0) return `${hrs}h ${mins}m`;
   return `${mins}m`;
+}
+
+async function apiGet(path, params = {}) {
+  const url = new URL(path, API_BASE);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null) url.searchParams.set(k, String(v));
+  });
+
+  const res = await fetch(url.toString());
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  return body;
 }
 
 /* ==================== DATA PROCESSING ==================== */
@@ -1426,18 +1435,19 @@ function renderStats(rows) {
 /* ==================== DATA LOADING ==================== */
 async function loadRange() {
   const cfg = RANGES[currentRange];
-  const since = new Date(Date.now() - cfg.ms).toISOString();
   document.getElementById('rangeMeta').textContent = `Showing ${cfg.label}`;
 
-  const { data, error } = await supabase
-    .from(TABLE).select('*')
-    .gte('created_at', since)
-    .order('created_at', { ascending: true })
-    .limit(10000);
+  let data;
+  try {
+    const resp = await apiGet('/range', { range: currentRange });
+    data = resp.data;
+  } catch (err) {
+    showOverlay('Query failed', err.message || 'Unable to load range data', true);
+    return;
+  }
 
-  if (error) { showOverlay('Query failed', error.message, true); return; }
   if (!data || !data.length) {
-    showOverlay('No data', `No readings in the ${cfg.label}. Make sure your NodeMCU is pushing data and that RLS allows SELECT with the anon key.`, true);
+    showOverlay('No data', `No readings in the ${cfg.label}. Make sure your NodeMCU is pushing data.`, true);
     return;
   }
 
@@ -1457,21 +1467,22 @@ async function loadRange() {
 }
 
 async function fetchLatest() {
-  const { data, error } = await supabase
-    .from(TABLE).select('*')
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (!error && data && data[0]) renderLive(data[0]);
+  try {
+    const resp = await apiGet('/latest');
+    if (resp.data) renderLive(resp.data);
+  } catch (_) {
+    // Keep dashboard running even if one polling cycle fails.
+  }
 }
 
 async function loadInsights() {
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data } = await supabase
-    .from(TABLE)
-    .select('motion,temperature,humidity,created_at')
-    .gte('created_at', since)
-    .order('created_at', { ascending: true })
-    .limit(100000);
+  let data = [];
+  try {
+    const resp = await apiGet('/insights', { days: 7 });
+    data = resp.data || [];
+  } catch (_) {
+    data = [];
+  }
 
   if (data && data.length) {
     renderOccupancyHeatmap(data);
@@ -1486,25 +1497,8 @@ async function loadInsights() {
 function setupRealtime() {
   const conn = document.getElementById('conn');
   const connText = document.getElementById('connText');
-  supabase
-    .channel('room_monitor_changes')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE }, payload => {
-      renderLive(payload.new);
-      recentRows.push(payload.new);
-      const cutoff = Date.now() - 30 * 60 * 1000;
-      recentRows = recentRows.filter(r => new Date(r.created_at).getTime() > cutoff);
-      renderTrends();
-      if (currentRange === '1h' || currentRange === '6h') loadRange();
-    })
-    .subscribe(status => {
-      if (status === 'SUBSCRIBED') {
-        conn.classList.add('live');
-        connText.textContent = 'live';
-      } else {
-        conn.classList.remove('live');
-        connText.textContent = String(status).toLowerCase();
-      }
-    });
+  conn.classList.add('live');
+  connText.textContent = 'polling';
 }
 
 function setupRangeTabs() {
@@ -1556,79 +1550,25 @@ function step(msg) {
 /* ==================== INIT ==================== */
 async function init() {
   step('Checking config…');
-  if (SUPABASE_URL.startsWith('YOUR_') || SUPABASE_ANON_KEY.startsWith('YOUR_')) {
-    showOverlay('Add your Supabase credentials',
-      'Replace SUPABASE_URL and SUPABASE_ANON_KEY at the top of the script.', true);
-    return;
-  }
-  if (!/^https:\/\/[a-z0-9]+\.supabase\.co\/?$/i.test(SUPABASE_URL)) {
-    showOverlay('Bad SUPABASE_URL',
-      'Should look like https://xxxxx.supabase.co (no trailing path). Got: ' + SUPABASE_URL, true);
-    return;
-  }
-
-  step('Waiting for Supabase library…');
-  let waited = 0;
-  while (!window.supabase && !window.__sbError && waited < 5000) {
-    await new Promise(r => setTimeout(r, 100));
-    waited += 100;
-  }
-  if (window.__sbError) {
-    showOverlay('CDN blocked', window.__sbError + '. Check your network / adblocker.', true);
-    return;
-  }
-  if (!window.supabase || !window.supabase.createClient) {
-    showOverlay('Supabase library missing',
-      'window.supabase is ' + typeof window.supabase + '. The CDN script did not register createClient. Check the browser console.', true);
+  if (!/^https:\/\/.+\.workers\.dev\/?$/i.test(API_BASE)) {
+    showOverlay('Bad API_BASE',
+      'Set API_BASE to your deployed Cloudflare Worker URL.', true);
     return;
   }
 
   try {
-    step('Creating client…');
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    step('Connecting to backend…');
     setupRangeTabs();
-
-    step('Querying room_monitor…');
-    const cfg = RANGES[currentRange];
-    const since = new Date(Date.now() - cfg.ms).toISOString();
-    const { data, error } = await supabase
-      .from(TABLE).select('*')
-      .gte('created_at', since)
-      .order('created_at', { ascending: true })
-      .limit(10000);
-
-    if (error) {
-      showOverlay('Supabase query error',
-        (error.message || 'Unknown') + (error.hint ? ' — ' + error.hint : '') +
-        ' (code: ' + (error.code || 'n/a') + ')', true);
-      return;
-    }
-    if (!data || !data.length) {
-      showOverlay('Connected, but no rows',
-        'Query worked but returned 0 rows in the last ' + cfg.label + '. Either the NodeMCU isn\'t pushing, or RLS is filtering everything out. Try widening to 30D.', true);
-      return;
-    }
-
-    step('Rendering ' + data.length + ' rows…');
-    document.getElementById('rangeMeta').textContent = 'Showing ' + cfg.label;
-    const bucketed = bucketize(data, cfg.bucketMin);
-    renderClimate(bucketed);
-    renderGas(bucketed);
-    renderMotion(bucketed);
-    renderStats(data);
-    renderLive(data[data.length - 1]);
-    findLastMotion(data);
-
-    const cutoff = Date.now() - 30 * 60 * 1000;
-    recentRows = data.filter(r => new Date(r.created_at).getTime() > cutoff);
-    renderTrends();
-
-    hideOverlay();
-
+    step('Loading data…');
+    await loadRange();
+    if (document.getElementById('overlay').style.display !== 'none') return;
     loadInsights();
     startMotionTicker();
     setupRealtime();
     setInterval(fetchLatest, 30000);
+    setInterval(() => {
+      if (currentRange === '1h' || currentRange === '6h') loadRange();
+    }, 45000);
 
     window.addEventListener('resize', () => {
       if (latestReading) drawComfortGauge(latestReading.temperature, latestReading.humidity);
