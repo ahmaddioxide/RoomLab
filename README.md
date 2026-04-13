@@ -1,5 +1,9 @@
 # Home Lab Room Monitor
 
+[![Live Dashboard](https://img.shields.io/badge/Live-Dashboard-0ea5e9?style=for-the-badge)](https://<username>.github.io/<repo>/)
+[![Cloudflare Worker](https://img.shields.io/badge/API-Cloudflare%20Worker-f97316?style=for-the-badge)](https://home-lab-api.ahmadmahmood296.workers.dev/health)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](./LICENSE)
+
 Real-time room environment monitoring system with:
 - ESP8266 sensor node (`home_lab.ino`)
 - Supabase data storage
@@ -7,6 +11,23 @@ Real-time room environment monitoring system with:
 - Cloudflare Worker API proxy (`worker/`) to keep secrets off the frontend
 
 The dashboard is designed for static hosting (for example, GitHub Pages), while sensitive credentials stay in Cloudflare Worker secrets.
+
+## Why this project
+
+This project turns low-cost sensors into a full monitoring stack:
+- edge device collection (ESP8266)
+- cloud-backed historical storage (Supabase)
+- secure public dashboard (GitHub Pages + Worker API proxy)
+
+It is built to be understandable, deployable, and safe to share publicly.
+
+## Quick Start
+
+1. Configure firmware secrets and flash the ESP8266.
+2. Deploy the Worker backend and set Worker secrets.
+3. Set `API_BASE` in `index.html`.
+4. Deploy frontend to GitHub Pages.
+5. Open the live URL and confirm cards/charts update.
 
 ## Project Structure
 
@@ -216,4 +237,16 @@ Before sharing or making repository public:
 - Add alerting (email/telegram) on gas threshold or motion events
 - Add data retention policies and rollups in Supabase
 - Add CI checks for Worker and frontend changes
+
+## Contributing
+
+Contributions are welcome. Please read `CONTRIBUTING.md` before opening a PR.
+
+## Security
+
+If you find a vulnerability, do not open a public issue first. See `SECURITY.md`.
+
+## License
+
+This project is licensed under the MIT License. See `LICENSE`.
 
