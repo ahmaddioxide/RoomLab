@@ -1,4 +1,5 @@
-# Home Lab Room Monitor
+# AirPulse Home Lab
+Real-time room monitoring dashboard with ESP8266 sensors, Supabase storage, and Cloudflare Worker-secured API.
 
 [![Live Dashboard](https://img.shields.io/badge/Live-Dashboard-0ea5e9?style=for-the-badge)](https://<username>.github.io/<repo>/)
 [![Cloudflare Worker](https://img.shields.io/badge/API-Cloudflare%20Worker-f97316?style=for-the-badge)](https://home-lab-api.ahmadmahmood296.workers.dev/health)
