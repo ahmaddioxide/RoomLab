@@ -4,6 +4,7 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
 #include <ArduinoJson.h>
+#include "secrets.h"
 
 extern "C" {
   #include "user_interface.h"
@@ -15,11 +16,26 @@ extern "C" {
 #define BUZZER_PIN D0
 #define PIR_PIN D6
 
-const char* ssid = "StackPebbles";
-const char* password = "dont-look-here";
-// Intentialy makein
-const char* supabaseUrl = "";
-const char* supabaseKey = "";
+#ifndef WIFI_SSID
+#error "Missing WIFI_SSID. Copy secrets.example.h to secrets.h and fill your values."
+#endif
+
+#ifndef WIFI_PASSWORD
+#error "Missing WIFI_PASSWORD. Copy secrets.example.h to secrets.h and fill your values."
+#endif
+
+#ifndef SUPABASE_URL
+#error "Missing SUPABASE_URL. Copy secrets.example.h to secrets.h and fill your values."
+#endif
+
+#ifndef SUPABASE_KEY
+#error "Missing SUPABASE_KEY. Copy secrets.example.h to secrets.h and fill your values."
+#endif
+
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
+const char* supabaseUrl = SUPABASE_URL;
+const char* supabaseKey = SUPABASE_KEY;
 DHT dht(DHTPIN, DHTTYPE);
 ESP8266WebServer server(80);
 

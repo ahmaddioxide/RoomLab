@@ -1,0 +1,14 @@
+# Firmware local secrets
+secrets.h
+
+# Common local env files
+.env
+.env.local
+.env.*.local
+
+# Wrangler local artifacts
+worker/.wrangler/
+
+# OS/editor noise
+.DS_Store
+*.log
