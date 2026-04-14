@@ -431,6 +431,58 @@
     border-radius: 2px;
   }
 
+  /* ---- Summary Cards ---- */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    transition: border-color 0.2s;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .summary-card:hover { border-color: #2a323e; }
+  .summary-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .summary-body { min-width: 0; flex: 1; }
+  .summary-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .summary-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .summary-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+
   /* ---- Stats Grid ---- */
   .stats-grid {
     display: grid;
@@ -501,6 +553,7 @@
     .comfort-section { flex-direction: column; }
     .comfort-gauge-card { flex: unset; }
     .insights-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 900px) {
     .live-grid { grid-template-columns: repeat(2, 1fr); }
@@ -544,6 +597,12 @@
     .chart-wrap { height: 200px; }
     .chart-header { flex-direction: column; align-items: flex-start; gap: 8px; }
     .chart-legend { flex-wrap: wrap; gap: 8px; }
+
+    /* Summary cards */
+    .summary-grid { grid-template-columns: 1fr; gap: 10px; }
+    .summary-card { padding: 14px; gap: 12px; }
+    .summary-icon { width: 36px; height: 36px; font-size: 16px; }
+    .summary-value { font-size: 20px; }
 
     /* Stats grid */
     .stats-grid { gap: 12px; }
@@ -742,6 +801,43 @@
         </div>
       </div>
       <div class="chart-wrap"><canvas id="peakHoursChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ======== SUMMARY CARDS ======== -->
+  <div class="section-title">Summary</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(251,146,60,0.15);color:#fb923c;">🌡</div>
+      <div class="summary-body">
+        <div class="summary-label">This Week Avg Temp</div>
+        <div class="summary-value" id="weekAvgTemp">—</div>
+        <div class="summary-sub" id="weekTempRange">—</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(251,146,60,0.15);color:#fb923c;">📅</div>
+      <div class="summary-body">
+        <div class="summary-label">This Month Avg Temp</div>
+        <div class="summary-value" id="monthAvgTemp">—</div>
+        <div class="summary-sub" id="monthTempRange">—</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(45,212,191,0.15);color:#2dd4bf;">🏠</div>
+      <div class="summary-body">
+        <div class="summary-label">Weekly Occupancy</div>
+        <div class="summary-value" id="weekOccupancy">—</div>
+        <div class="summary-sub" id="weekOccupancySub">—</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(45,212,191,0.15);color:#2dd4bf;">📊</div>
+      <div class="summary-body">
+        <div class="summary-label">Monthly Occupancy</div>
+        <div class="summary-value" id="monthOccupancy">—</div>
+        <div class="summary-sub" id="monthOccupancySub">—</div>
+      </div>
     </div>
   </div>
 
@@ -1507,6 +1603,61 @@ function renderStats(rows) {
   }
 }
 
+function renderSummary(weekData, monthData) {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 86400000);
+  const monthAgo = new Date(now.getTime() - 30 * 86400000);
+
+  function tempSummary(rows, elAvg, elRange) {
+    const temps = rows.map(r => r.temperature).filter(v => v != null);
+    if (!temps.length) {
+      document.getElementById(elAvg).textContent = '—';
+      document.getElementById(elRange).textContent = 'No data';
+      return;
+    }
+    const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+    const min = Math.min(...temps);
+    const max = Math.max(...temps);
+    document.getElementById(elAvg).textContent = fmt(avg) + ' °C';
+    document.getElementById(elRange).textContent = `Range: ${fmt(min)} – ${fmt(max)} °C`;
+  }
+
+  function occupancySummary(rows, elVal, elSub, label) {
+    if (!rows.length) {
+      document.getElementById(elVal).textContent = '—';
+      document.getElementById(elSub).textContent = 'No data';
+      return;
+    }
+    const total = rows.length;
+    const motionCount = rows.filter(r => r.motion).length;
+    const pct = Math.round((motionCount / total) * 100);
+
+    // Estimate occupied hours: group by hour slots, count slots with any motion
+    const hourSlots = new Set();
+    const totalSlots = new Set();
+    for (const r of rows) {
+      const d = new Date(r.created_at);
+      const slotKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+      totalSlots.add(slotKey);
+      if (r.motion) hourSlots.add(slotKey);
+    }
+    const occupiedHrs = hourSlots.size;
+    const totalHrs = totalSlots.size;
+
+    document.getElementById(elVal).textContent = pct + '%';
+    document.getElementById(elSub).textContent = `${occupiedHrs} of ${totalHrs} hrs had activity`;
+  }
+
+  // Weekly
+  const weekRows = weekData.filter(r => new Date(r.created_at) >= weekAgo);
+  tempSummary(weekRows, 'weekAvgTemp', 'weekTempRange');
+  occupancySummary(weekRows, 'weekOccupancy', 'weekOccupancySub', '7 days');
+
+  // Monthly
+  tempSummary(monthData, 'monthAvgTemp', 'monthTempRange');
+  occupancySummary(monthData, 'monthOccupancy', 'monthOccupancySub', '30 days');
+}
+
 /* ==================== DATA LOADING ==================== */
 async function loadRange() {
   const cfg = RANGES[currentRange];
@@ -1563,16 +1714,17 @@ async function fetchLatest() {
 
 async function loadInsights() {
   let insightData = [];
+  let monthData = [];
   let rangeData = [];
   try {
-    // Fetch insights (7d for heatmap/peak-hours) AND 24h range data in parallel.
-    // The 24h range guarantees today's data is included for the comparison chart,
-    // even if the insights endpoint truncates recent rows due to row limits.
-    const [insightsResp, rangeResp] = await Promise.all([
+    // Fetch 7d insights, 30d insights (for summaries), and 24h range data in parallel.
+    const [insightsResp, monthResp, rangeResp] = await Promise.all([
       apiGet('/insights', { days: 7 }),
+      apiGet('/insights', { days: 30 }),
       apiGet('/range', { range: '24h' }),
     ]);
     insightData = insightsResp.data || [];
+    monthData = monthResp.data || [];
     rangeData = rangeResp.data || [];
   } catch (_) {}
 
@@ -1582,6 +1734,9 @@ async function loadInsights() {
   } else {
     document.getElementById('heatmapGrid').innerHTML = '<span style="color:var(--text-faint)">No data for heatmap</span>';
   }
+
+  // Summary cards: weekly (from 7d data) + monthly (from 30d data)
+  renderSummary(insightData, monthData);
 
   // Merge insights + range data for comparison chart (dedup by created_at)
   const mergedMap = new Map();
