@@ -25,6 +25,7 @@
     --ok: #22c55e;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { overflow-x: hidden; }
   body {
     background: var(--bg);
     color: var(--text);
@@ -34,8 +35,9 @@
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
-  .container { max-width: 1400px; margin: 0 auto; }
+  .container { max-width: 1400px; margin: 0 auto; width: 100%; overflow-x: hidden; }
 
   header {
     display: flex;
@@ -90,12 +92,15 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-bottom: 24px;
+    min-width: 0;
   }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
+    min-width: 0;
+    overflow: hidden;
     transition: border-color 0.2s;
   }
   .card:hover { border-color: #2a323e; }
@@ -503,6 +508,64 @@
     .comfort-details-card { grid-template-columns: 1fr; }
     body { padding: 16px; }
     .card-value { font-size: 30px; }
+    .live-grid, .charts, .insights-grid, .stats-grid, .comfort-section, .range-bar {
+      max-width: 100%;
+      min-width: 0;
+    }
+    .card, .chart-card, .stat-card, .comfort-gauge-card, .comfort-details-card {
+      min-width: 0;
+      overflow: hidden;
+      word-break: break-word;
+    }
+  }
+  @media (max-width: 480px) {
+    body { padding: 12px; }
+    .container { overflow-x: hidden; }
+    h1 { font-size: 18px; }
+    .card-value { font-size: 26px; }
+    .section-title { font-size: 14px; }
+    .live-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card { padding: 14px; }
+    .card-unit { font-size: 14px; }
+
+    /* Insights heatmap: scale down cells for small screens */
+    .heatmap-cell { width: 12px; height: 12px; }
+    .heatmap-grid { gap: 1px; }
+    .heatmap-header-cell { font-size: 7px; }
+    .heatmap-day-label { font-size: 9px; padding-right: 4px; }
+    .heatmap-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -12px;
+      padding: 0 12px;
+    }
+
+    /* Peak hours chart: reduce height on mobile */
+    .chart-wrap { height: 200px; }
+    .chart-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .chart-legend { flex-wrap: wrap; gap: 8px; }
+
+    /* Stats grid */
+    .stats-grid { gap: 12px; }
+    .stat-card { padding: 16px; }
+    .stat-title { font-size: 11px; margin-bottom: 10px; }
+    .stat-val { font-size: 13px; }
+
+    /* Range tabs: scrollable on small screens */
+    .range-bar { flex-direction: column; align-items: flex-start; }
+    .range-tabs { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+    .range-tab { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+
+    /* Comparison chart filter tabs */
+    .chart-card { padding: 16px; }
+    #compTabs { flex-wrap: nowrap; }
+
+    /* Comfort section */
+    .comfort-gauge-card { padding: 16px; }
+    .comfort-details-card { padding: 16px; gap: 12px; }
+    .comfort-canvas-wrap { width: 180px; height: 110px; }
+    .comfort-score-num { font-size: 26px; }
+    .comfort-detail-value { font-size: 16px; }
   }
 </style>
 </head>
@@ -1033,17 +1096,18 @@ function renderDailyComparison(allRows, mode) {
   const showTemp = mode === 'both' || mode === 'temp';
   const showHum = mode === 'both' || mode === 'hum';
 
+  // Draw yesterday FIRST (background), then today ON TOP so solid lines are always visible
   if (showTemp) {
+    ds.push({ label: 'Yesterday Temp', data: toHourData(yesterday, 'temperature'), borderColor: 'rgba(251,146,60,0.45)',
+      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 2 });
     ds.push({ label: 'Today Temp', data: toHourData(today, 'temperature'), borderColor: '#fb923c',
-      borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.3, yAxisID: 'y' });
-    ds.push({ label: 'Yesterday Temp', data: toHourData(yesterday, 'temperature'), borderColor: '#fb923c',
-      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: 'y' });
+      borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y', order: 1 });
   }
   if (showHum) {
+    ds.push({ label: 'Yesterday Hum', data: toHourData(yesterday, 'humidity'), borderColor: 'rgba(56,189,248,0.45)',
+      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: showTemp ? 'y1' : 'y', order: 2 });
     ds.push({ label: 'Today Hum', data: toHourData(today, 'humidity'), borderColor: '#38bdf8',
-      borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, tension: 0.3, yAxisID: showTemp ? 'y1' : 'y' });
-    ds.push({ label: 'Yesterday Hum', data: toHourData(yesterday, 'humidity'), borderColor: '#38bdf8',
-      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: showTemp ? 'y1' : 'y' });
+      borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: showTemp ? 'y1' : 'y', order: 1 });
   }
 
   // Update legend
@@ -1051,13 +1115,24 @@ function renderDailyComparison(allRows, mode) {
   let legendHtml = '';
   if (showTemp) {
     legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div>Today Temp</div>';
-    legendHtml += '<div class="legend-item"><div class="legend-line" style="border-color:#fb923c;"></div>Yesterday</div>';
+    legendHtml += '<div class="legend-item"><div class="legend-line" style="border-color:rgba(251,146,60,0.45);"></div>Yesterday</div>';
   }
   if (showHum) {
     legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div>Today Hum</div>';
-    legendHtml += '<div class="legend-item"><div class="legend-line" style="border-color:#38bdf8;"></div>Yesterday</div>';
+    legendHtml += '<div class="legend-item"><div class="legend-line" style="border-color:rgba(56,189,248,0.45);"></div>Yesterday</div>';
   }
   legend.innerHTML = legendHtml;
+
+  // If today has no data yet, show a note
+  const todayTempCount = showTemp ? toHourData(today, 'temperature').length : 0;
+  const todayHumCount = showHum ? toHourData(today, 'humidity').length : 0;
+  if ((showTemp && todayTempCount === 0) && (showHum && todayHumCount === 0)) {
+    legend.innerHTML += '<div class="legend-item" style="color:var(--text-faint);font-style:italic;">No data for today yet</div>';
+  } else if (!showHum && showTemp && todayTempCount === 0) {
+    legend.innerHTML += '<div class="legend-item" style="color:var(--text-faint);font-style:italic;">No temp data for today yet</div>';
+  } else if (!showTemp && showHum && todayHumCount === 0) {
+    legend.innerHTML += '<div class="legend-item" style="color:var(--text-faint);font-style:italic;">No humidity data for today yet</div>';
+  }
 
   const scales = {
     x: {
@@ -1459,6 +1534,17 @@ async function loadRange() {
   renderLive(data[data.length - 1]);
   findLastMotion(data);
 
+  // Update comparison chart with fresh data if it's already been initialized
+  if (comparisonAllRows) {
+    const mergedMap = new Map();
+    for (const r of comparisonAllRows) mergedMap.set(r.created_at, r);
+    for (const r of data) mergedMap.set(r.created_at, r);
+    const merged = [...mergedMap.values()].sort((a, b) =>
+      new Date(a.created_at) - new Date(b.created_at)
+    );
+    renderDailyComparison(merged);
+  }
+
   const cutoff = Date.now() - 30 * 60 * 1000;
   recentRows = data.filter(r => new Date(r.created_at).getTime() > cutoff);
   renderTrends();
@@ -1476,21 +1562,35 @@ async function fetchLatest() {
 }
 
 async function loadInsights() {
-  let data = [];
+  let insightData = [];
+  let rangeData = [];
   try {
-    const resp = await apiGet('/insights', { days: 7 });
-    data = resp.data || [];
-  } catch (_) {
-    data = [];
-  }
+    // Fetch insights (7d for heatmap/peak-hours) AND 24h range data in parallel.
+    // The 24h range guarantees today's data is included for the comparison chart,
+    // even if the insights endpoint truncates recent rows due to row limits.
+    const [insightsResp, rangeResp] = await Promise.all([
+      apiGet('/insights', { days: 7 }),
+      apiGet('/range', { range: '24h' }),
+    ]);
+    insightData = insightsResp.data || [];
+    rangeData = rangeResp.data || [];
+  } catch (_) {}
 
-  if (data && data.length) {
-    renderOccupancyHeatmap(data);
-    renderPeakHours(data);
-    renderDailyComparison(data);
+  if (insightData.length) {
+    renderOccupancyHeatmap(insightData);
+    renderPeakHours(insightData);
   } else {
     document.getElementById('heatmapGrid').innerHTML = '<span style="color:var(--text-faint)">No data for heatmap</span>';
   }
+
+  // Merge insights + range data for comparison chart (dedup by created_at)
+  const mergedMap = new Map();
+  for (const r of insightData) mergedMap.set(r.created_at, r);
+  for (const r of rangeData) mergedMap.set(r.created_at, r);
+  const merged = [...mergedMap.values()].sort((a, b) =>
+    new Date(a.created_at) - new Date(b.created_at)
+  );
+  if (merged.length) renderDailyComparison(merged);
 }
 
 /* ==================== SETUP ==================== */
