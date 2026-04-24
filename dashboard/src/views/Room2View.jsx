@@ -6,8 +6,9 @@ import { useInterval } from '../hooks/useInterval';
 import LiveCard, { TrendBadge, AqiDisplay } from '../components/LiveCard';
 import ComfortSection from '../components/ComfortSection';
 import RangeTabs from '../components/RangeTabs';
-import { ChartCard, LegendDot, BarChartCard, yScale, yScaleRight } from '../components/ChartCard';
+import { ChartCard, BarChartCard } from '../components/ChartCard';
 import SensorAreaChart from '../components/SensorAreaChart';
+import DayComparisonChart from '../components/DayComparisonChart';
 import Heatmap from '../components/Heatmap';
 import StatsGrid, { calcStats } from '../components/StatsGrid';
 import SummaryGrid from '../components/SummaryGrid';
@@ -17,7 +18,7 @@ import Overlay from '../components/Overlay';
 
 export default function Room2View() {
   const [range, setRange] = useState('6h');
-  const { bucketed, rangeData, latest, insights7d, insights30d, compRows, presence, loading } = useRoomData('room2', range);
+  const { bucketed, rangeData, latest, insights7d, insights30d, presence, loading } = useRoomData('room2', range);
   const cfg = ROOM_CONFIG.room2;
   const [motionAge, setMotionAge] = useState('');
 
@@ -151,6 +152,7 @@ export default function Room2View() {
             { key: 'humidity', label: 'Humidity %', color: 'oklch(0.70 0.10 220)' },
           ]}
         />
+        <DayComparisonChart rows={[...insights7d, ...rangeData]} room="room2" />
         <SensorAreaChart
           title="Pressure"
           description="Barometric pressure"

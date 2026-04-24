@@ -43,14 +43,14 @@ export default function SensorAreaChart({
   if (!data?.length) return null;
 
   return (
-    <Card className={`w-full bg-[var(--bg)] border-[var(--border)] text-[var(--text)] ${className ?? ''}`}>
-      <CardHeader className="pb-2">
+    <Card className={`w-full overflow-visible bg-[var(--bg)] border-[var(--border)] text-[var(--text)] ${className ?? ''}`}>
+      <CardHeader className="pb-2 px-4">
         <CardTitle className="text-sm font-semibold text-[var(--text)]">{title}</CardTitle>
         {description && <CardDescription className="text-xs text-[var(--text-dim)]">{description}</CardDescription>}
       </CardHeader>
-      <CardContent className="px-1 sm:px-2 pb-4">
+      <CardContent className="px-3 sm:px-4 pb-4">
         <ChartContainer config={chartConfig} className="aspect-auto h-[180px] sm:h-[220px] w-full">
-          <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+          <AreaChart data={data} margin={{ top: 10, right: 30, bottom: 0, left: 0 }}>
             <defs>
               {series.map((s) => (
                 <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">

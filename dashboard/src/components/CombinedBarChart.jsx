@@ -41,14 +41,14 @@ export default function CombinedBarChart({
   if (!data?.length) return null;
 
   return (
-    <Card className={`w-full bg-[var(--bg)] border-[var(--border)] text-[var(--text)] ${className ?? ''}`}>
-      <CardHeader className="pb-2">
+    <Card className={`w-full overflow-visible bg-[var(--bg)] border-[var(--border)] text-[var(--text)] ${className ?? ''}`}>
+      <CardHeader className="pb-2 px-4">
         <CardTitle className="text-sm font-semibold text-[var(--text)]">{title}</CardTitle>
         {description && <CardDescription className="text-xs text-[var(--text-dim)]">{description}</CardDescription>}
       </CardHeader>
-      <CardContent className="px-1 sm:px-2 pb-4">
+      <CardContent className="px-3 sm:px-4 pb-4">
         <ChartContainer config={chartConfig} className="aspect-auto h-[180px] sm:h-[220px] w-full">
-          <BarChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+          <BarChart data={data} margin={{ top: 10, right: 30, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke="oklch(0.28 0.012 55 / 0.5)" strokeDasharray="3 3" />
             <XAxis
               dataKey={xKey}
