@@ -3,8 +3,6 @@ name: Deploy Dashboard to GitHub Pages
 on:
   push:
     branches: [main]
-    paths:
-      - 'dashboard/**'
   workflow_dispatch:
 
 permissions:
