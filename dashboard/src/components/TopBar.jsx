@@ -21,13 +21,13 @@ export default function TopBar({ activeView, onSwitch, lastTs }) {
               onClick={() => onSwitch(v.key)}
             >
               <span className="tab-dot" style={{ background: v.color }} />
-              {v.label}
+              <span className="nav-tab-label">{v.label}</span>
             </button>
           ))}
         </div>
         <div className="top-status">
-          <span>{tsStr}</span>
-          <div className="conn live"><div className="conn-dot" /><span>polling</span></div>
+          <span className="top-status-ts">{tsStr}</span>
+          <div className="conn live"><div className="conn-dot" /><span>Live</span></div>
         </div>
       </div>
     </div>

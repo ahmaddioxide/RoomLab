@@ -6,7 +6,8 @@ import { fmt, calcAirQuality, getAQIInfo, computeTrends, hourAmPm } from '../uti
 import LiveCard, { TrendBadge, AqiDisplay } from '../components/LiveCard';
 import ComfortSection from '../components/ComfortSection';
 import RangeTabs from '../components/RangeTabs';
-import { ChartCard, LegendDot, TimeSeriesChart, BarChartCard, yScale, yScaleRight } from '../components/ChartCard';
+import { ChartCard, LegendDot, BarChartCard, yScale, yScaleRight } from '../components/ChartCard';
+import SensorAreaChart from '../components/SensorAreaChart';
 import Heatmap from '../components/Heatmap';
 import StatsGrid, { calcStats } from '../components/StatsGrid';
 import SummaryGrid from '../components/SummaryGrid';
@@ -27,15 +28,21 @@ export default function Room1View() {
   }, [rangeData]);
   const trends = useMemo(() => computeTrends(recentRows, cfg.gasField), [recentRows, cfg.gasField]);
 
-  // Chart datasets
-  const climateDS = useMemo(() => [
-    { label: 'Temp', data: bucketed.filter(r => r.temperature != null).map(r => ({ x: r.created_at, y: r.temperature })), borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y' },
-    { label: 'Hum', data: bucketed.filter(r => r.humidity != null).map(r => ({ x: r.created_at, y: r.humidity })), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1' },
-  ], [bucketed]);
+  // Chart data for recharts
+  const climateData = useMemo(() =>
+    bucketed.filter(r => r.temperature != null || r.humidity != null).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      temperature: r.temperature,
+      humidity: r.humidity,
+    })),
+  [bucketed]);
 
-  const gasDS = useMemo(() => [
-    { label: 'Gas', data: bucketed.filter(r => r[cfg.gasField] != null).map(r => ({ x: r.created_at, y: r[cfg.gasField] })), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [bucketed, cfg.gasField]);
+  const gasData = useMemo(() =>
+    bucketed.filter(r => r[cfg.gasField] != null).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      gas: r[cfg.gasField],
+    })),
+  [bucketed, cfg.gasField]);
 
   // Peak hours
   const peakData = useMemo(() => {
@@ -56,7 +63,7 @@ export default function Room1View() {
   return (
     <div className="view active">
       <div className="section-header">
-        <div><div className="section-title">Room 1 — <span style={{ color: 'var(--r1)' }}>ESP8266</span></div><div className="section-sub">DHT11 · MQ2 · Buzzer</div></div>
+        <div><div className="section-title">Room 1</div><div className="section-sub">Temperature · Humidity · Air Quality</div></div>
       </div>
       <DeviceStatus room="room1" latest={latest} />
 
@@ -83,13 +90,24 @@ export default function Room1View() {
       </div>
 
       <div className="charts">
-        <ChartCard title="Temperature & Humidity" legend={<><LegendDot color="var(--temp)" label="Temp °C" /><LegendDot color="var(--humidity)" label="Humidity %" /></>}>
-          <TimeSeriesChart datasets={climateDS} scales={{ y: yScale('#fb923c'), y1: yScaleRight('#38bdf8') }} />
-        </ChartCard>
+        <SensorAreaChart
+          title="Temperature & Humidity"
+          description={`Showing ${RANGES[range].label}`}
+          data={climateData}
+          series={[
+            { key: 'temperature', label: 'Temperature °C', color: 'oklch(0.75 0.14 55)' },
+            { key: 'humidity', label: 'Humidity %', color: 'oklch(0.70 0.10 220)' },
+          ]}
+        />
         <ComparisonSection compRows={compRows} />
-        <ChartCard title="Gas Level" legend={<LegendDot color="var(--gas)" label="level" />}>
-          <TimeSeriesChart datasets={gasDS} scales={{ y: yScale('#7d8590') }} />
-        </ChartCard>
+        <SensorAreaChart
+          title="Gas Level"
+          description="MQ2 gas sensor"
+          data={gasData}
+          series={[
+            { key: 'gas', label: 'Gas Level', color: 'oklch(0.68 0.12 310)' },
+          ]}
+        />
       </div>
 
       <div className="section-title">Insights</div>
@@ -123,13 +141,13 @@ function ComparisonSection({ compRows }) {
     function toHD(rows, f) { return rows.filter(r => r[f] != null).map(r => { const d = new Date(r.created_at); return { x: d.getHours() + d.getMinutes() / 60, y: r[f] }; }); }
     const ds = [], showT = mode === 'both' || mode === 'temp', showH = mode === 'both' || mode === 'hum';
     if (showT) {
-      ds.push({ label: 'Y Temp', data: toHD(yesterday, 'temperature'), borderColor: 'rgba(251,146,60,0.45)', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 2 });
-      ds.push({ label: 'T Temp', data: toHD(today, 'temperature'), borderColor: '#fb923c', borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y', order: 1 });
+      ds.push({ label: 'Y Temp', data: toHD(yesterday, 'temperature'), borderColor: 'oklch(0.75 0.14 55 / 0.45)', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 2 });
+      ds.push({ label: 'T Temp', data: toHD(today, 'temperature'), borderColor: 'oklch(0.75 0.14 55)', borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y', order: 1 });
     }
     if (showH) {
       const yid = showT ? 'y1' : 'y';
-      ds.push({ label: 'Y Hum', data: toHD(yesterday, 'humidity'), borderColor: 'rgba(56,189,248,0.45)', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: yid, order: 2 });
-      ds.push({ label: 'T Hum', data: toHD(today, 'humidity'), borderColor: '#38bdf8', borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: yid, order: 1 });
+      ds.push({ label: 'Y Hum', data: toHD(yesterday, 'humidity'), borderColor: 'oklch(0.70 0.10 220 / 0.45)', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: yid, order: 2 });
+      ds.push({ label: 'T Hum', data: toHD(today, 'humidity'), borderColor: 'oklch(0.70 0.10 220)', borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: yid, order: 1 });
     }
     return ds;
   }, [compRows, mode]);
@@ -138,10 +156,10 @@ function ComparisonSection({ compRows }) {
   const showH = mode === 'both' || mode === 'hum';
   const scales = useMemo(() => {
     const s = {
-      x: { type: 'linear', min: 0, max: 24, ticks: { stepSize: 3, callback: v => hourAmPm(v >= 24 ? 0 : v), color: '#7d8590', font: { family: 'Inter', size: 11 } }, grid: { color: 'rgba(31,38,48,0.5)' }, border: { color: '#1f2630' } },
-      y: yScale(showT ? '#fb923c' : '#38bdf8'),
+      x: { type: 'linear', min: 0, max: 24, ticks: { stepSize: 3, callback: v => hourAmPm(v >= 24 ? 0 : v), color: 'oklch(0.62 0.02 65)', font: { family: 'Geist Variable, sans-serif', size: 11 } }, grid: { color: 'oklch(0.28 0.012 55 / 0.5)' }, border: { color: 'oklch(0.28 0.012 55)' } },
+      y: yScale(showT ? 'oklch(0.75 0.14 55)' : 'oklch(0.70 0.10 220)'),
     };
-    if (showT && showH) s.y1 = yScaleRight('#38bdf8');
+    if (showT && showH) s.y1 = yScaleRight('oklch(0.70 0.10 220)');
     return s;
   }, [showT, showH]);
 
@@ -158,12 +176,12 @@ function ComparisonSection({ compRows }) {
             ))}
           </div>
           <div className="chart-legend">
-            {showT && <><LegendDot color="#fb923c" label="Today Temp" /><div className="legend-item"><div className="legend-line" style={{ borderColor: 'rgba(251,146,60,0.45)' }} />Yesterday</div></>}
-            {showH && <><LegendDot color="#38bdf8" label="Today Hum" /><div className="legend-item"><div className="legend-line" style={{ borderColor: 'rgba(56,189,248,0.45)' }} />Yesterday</div></>}
+            {showT && <><LegendDot color="oklch(0.75 0.14 55)" label="Today Temp" /><div className="legend-item"><div className="legend-line" style={{ borderColor: 'oklch(0.75 0.14 55 / 0.45)' }} />Yesterday</div></>}
+            {showH && <><LegendDot color="oklch(0.70 0.10 220)" label="Today Hum" /><div className="legend-item"><div className="legend-line" style={{ borderColor: 'oklch(0.70 0.10 220 / 0.45)' }} />Yesterday</div></>}
           </div>
         </div>
       </div>
-      <div style={{ height: 220 }}>
+      <div className="chart-canvas-wrap">
         {datasets.length > 0 && (
           <Line
             data={{ datasets }}

@@ -18,9 +18,9 @@ function drawGauge(canvas, score, color) {
   const r = Math.min(cw / 2, ch) * 0.82;
   const startA = Math.PI, lw = 12;
   const zones = [
-    { from: 0, to: 0.2, c: '#ef4444' }, { from: 0.2, to: 0.4, c: '#fb923c' },
-    { from: 0.4, to: 0.6, c: '#fbbf24' }, { from: 0.6, to: 0.8, c: '#4ade80' },
-    { from: 0.8, to: 1, c: '#22c55e' },
+    { from: 0, to: 0.2, c: '#c45d4e' }, { from: 0.2, to: 0.4, c: '#d4915c' },
+    { from: 0.4, to: 0.6, c: '#d4b95c' }, { from: 0.6, to: 0.8, c: '#7bc47b' },
+    { from: 0.8, to: 1, c: '#4da85e' },
   ];
   for (const z of zones) {
     ctx.beginPath(); ctx.arc(cx, cy, r, startA + z.from * Math.PI, startA + z.to * Math.PI);
@@ -33,9 +33,9 @@ function drawGauge(canvas, score, color) {
   ctx.strokeStyle = color + '40'; ctx.lineWidth = lw + 8; ctx.lineCap = 'round'; ctx.stroke();
   const na = startA + sr * Math.PI, nl = r * 0.6;
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(na) * nl, cy + Math.sin(na) * nl);
-  ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fillStyle = '#e6edf3'; ctx.fill();
-  ctx.font = '500 10px JetBrains Mono'; ctx.fillStyle = '#4a5260';
+  ctx.strokeStyle = 'oklch(0.93 0.01 75)'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fillStyle = 'oklch(0.93 0.01 75)'; ctx.fill();
+  ctx.font = '600 10px Geist Variable'; ctx.fillStyle = 'oklch(0.52 0.015 60)';
   ctx.textAlign = 'left'; ctx.fillText('0', cx - r - 4, cy + 14);
   ctx.textAlign = 'right'; ctx.fillText('100', cx + r + 4, cy + 14);
 }
@@ -59,15 +59,15 @@ export default function ComfortSection({ temperature, humidity }) {
   function zoneInfo(val, type) {
     if (val == null) return { text: '—', color: '' };
     if (type === 'temp') {
-      if (val >= 20 && val <= 26) return { text: 'Ideal', color: '#22c55e' };
-      if (val >= 17 && val <= 29) return { text: 'Okay', color: '#fbbf24' };
-      if (val < 17) return { text: 'Cold', color: '#38bdf8' };
-      return { text: 'Hot', color: '#ef4444' };
+      if (val >= 20 && val <= 26) return { text: 'Ideal', color: '#4da85e' };
+      if (val >= 17 && val <= 29) return { text: 'Okay', color: '#d4b95c' };
+      if (val < 17) return { text: 'Cold', color: '#6ba8c4' };
+      return { text: 'Hot', color: '#c45d4e' };
     }
-    if (val >= 30 && val <= 60) return { text: 'Ideal', color: '#22c55e' };
-    if (val >= 20 && val <= 70) return { text: 'Okay', color: '#fbbf24' };
-    if (val < 20) return { text: 'Dry', color: '#fb923c' };
-    return { text: 'Humid', color: '#38bdf8' };
+    if (val >= 30 && val <= 60) return { text: 'Ideal', color: '#4da85e' };
+    if (val >= 20 && val <= 70) return { text: 'Okay', color: '#d4b95c' };
+    if (val < 20) return { text: 'Dry', color: '#d4915c' };
+    return { text: 'Humid', color: '#6ba8c4' };
   }
 
   const tz = zoneInfo(temperature, 'temp');

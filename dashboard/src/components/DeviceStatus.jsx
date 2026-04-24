@@ -32,9 +32,9 @@ export default function DeviceStatus({ room, latest }) {
       <div className="device-status-dot" />
       <span className="device-status-name">{deviceName}</span>
       <span className="device-status-label">{status}</span>
-      <span className="device-status-sep">·</span>
-      <span className="device-status-ts">Last update: {tsStr}</span>
-      {ts && <span className="device-status-ago">({timeAgo(ts)})</span>}
+      <span className="device-status-sep hide-mobile">·</span>
+      <span className="device-status-ts hide-mobile">Last update: {tsStr}</span>
+      {ts && <span className="device-status-ago hide-mobile">({timeAgo(ts)})</span>}
     </div>
   );
 }

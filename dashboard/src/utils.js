@@ -37,12 +37,12 @@ export function calcAirQuality(gasLevel) {
 }
 
 export function getAQIInfo(s) {
-  if (s == null) return { label: '—', color: '#7d8590', badgeCls: '' };
-  if (s >= 80) return { label: 'Excellent', color: '#22c55e', badgeCls: 'badge-ok' };
-  if (s >= 60) return { label: 'Good', color: '#4ade80', badgeCls: 'badge-ok' };
-  if (s >= 40) return { label: 'Moderate', color: '#fbbf24', badgeCls: 'badge-warn' };
-  if (s >= 20) return { label: 'Poor', color: '#fb923c', badgeCls: 'badge-warn' };
-  return { label: 'Hazardous', color: '#ef4444', badgeCls: 'badge-alert' };
+  if (s == null) return { label: '—', color: 'oklch(0.62 0.02 65)', badgeCls: '' };
+  if (s >= 80) return { label: 'Excellent', color: '#4da85e', badgeCls: 'badge-ok' };
+  if (s >= 60) return { label: 'Good', color: '#7bc47b', badgeCls: 'badge-ok' };
+  if (s >= 40) return { label: 'Moderate', color: '#d4b95c', badgeCls: 'badge-warn' };
+  if (s >= 20) return { label: 'Poor', color: '#d4915c', badgeCls: 'badge-warn' };
+  return { label: 'Hazardous', color: '#c45d4e', badgeCls: 'badge-alert' };
 }
 
 export function calcHeatIndex(t, rh) {
@@ -67,7 +67,7 @@ export function calcDewPoint(t, rh) {
 }
 
 export function calcComfort(t, h) {
-  if (t == null || h == null) return { score: null, label: '—', color: '#7d8590' };
+  if (t == null || h == null) return { score: null, label: '—', color: 'oklch(0.62 0.02 65)' };
   let ts;
   if (t >= 20 && t <= 26) ts = 100 - Math.abs(t - 23) * 5;
   else if (t < 20) ts = Math.max(0, 70 - (20 - t) * 7);
@@ -78,11 +78,11 @@ export function calcComfort(t, h) {
   else hs = Math.max(0, 70 - (h - 60) * 3);
   const s = Math.round(ts * 0.6 + hs * 0.4);
   let l, c;
-  if (s >= 80) { l = 'Comfortable'; c = '#22c55e'; }
-  else if (s >= 60) { l = 'Acceptable'; c = '#4ade80'; }
-  else if (s >= 40) { l = 'Uncomfortable'; c = '#fbbf24'; }
-  else if (s >= 20) { l = 'Poor'; c = '#fb923c'; }
-  else { l = 'Critical'; c = '#ef4444'; }
+  if (s >= 80) { l = 'Comfortable'; c = '#4da85e'; }
+  else if (s >= 60) { l = 'Acceptable'; c = '#7bc47b'; }
+  else if (s >= 40) { l = 'Uncomfortable'; c = '#d4b95c'; }
+  else if (s >= 20) { l = 'Poor'; c = '#d4915c'; }
+  else { l = 'Critical'; c = '#c45d4e'; }
   return { score: s, label: l, color: c };
 }
 

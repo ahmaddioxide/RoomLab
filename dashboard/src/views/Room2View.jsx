@@ -6,7 +6,8 @@ import { useInterval } from '../hooks/useInterval';
 import LiveCard, { TrendBadge, AqiDisplay } from '../components/LiveCard';
 import ComfortSection from '../components/ComfortSection';
 import RangeTabs from '../components/RangeTabs';
-import { ChartCard, LegendDot, TimeSeriesChart, BarChartCard, yScale, yScaleRight } from '../components/ChartCard';
+import { ChartCard, LegendDot, BarChartCard, yScale, yScaleRight } from '../components/ChartCard';
+import SensorAreaChart from '../components/SensorAreaChart';
 import Heatmap from '../components/Heatmap';
 import StatsGrid, { calcStats } from '../components/StatsGrid';
 import SummaryGrid from '../components/SummaryGrid';
@@ -44,27 +45,42 @@ export default function Room2View() {
     setMotionAge(d < MOTION_OCCUPIED_MS ? 'Currently occupied' : 'Empty for ' + durationStr(d));
   }, 1000);
 
-  // Chart datasets
-  const climateDS = useMemo(() => [
-    { label: 'Temp', data: bucketed.filter(r => r.temperature != null).map(r => ({ x: r.created_at, y: r.temperature })), borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y' },
-    { label: 'Hum', data: bucketed.filter(r => r.humidity != null).map(r => ({ x: r.created_at, y: r.humidity })), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1' },
-  ], [bucketed]);
+  // Chart data for recharts
+  const climateData = useMemo(() =>
+    bucketed.filter(r => r.temperature != null || r.humidity != null).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      temperature: r.temperature,
+      humidity: r.humidity,
+    })),
+  [bucketed]);
 
-  const pressureDS = useMemo(() => [
-    { label: 'Pressure', data: bucketed.filter(r => r.pressure != null && r.pressure > 0).map(r => ({ x: r.created_at, y: r.pressure })), borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.1)', borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [bucketed]);
+  const pressureData = useMemo(() =>
+    bucketed.filter(r => r.pressure != null && r.pressure > 0).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      pressure: r.pressure,
+    })),
+  [bucketed]);
 
-  const airDS = useMemo(() => [
-    { label: 'Air Quality', data: bucketed.filter(r => r[cfg.gasField] != null).map(r => ({ x: r.created_at, y: r[cfg.gasField] })), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [bucketed, cfg.gasField]);
+  const airData = useMemo(() =>
+    bucketed.filter(r => r[cfg.gasField] != null).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      airQuality: r[cfg.gasField],
+    })),
+  [bucketed, cfg.gasField]);
 
-  const lightDS = useMemo(() => [
-    { label: 'Light', data: bucketed.filter(r => r.light_value != null).map(r => ({ x: r.created_at, y: r.light_value })), borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.12)', borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [bucketed]);
+  const lightData = useMemo(() =>
+    bucketed.filter(r => r.light_value != null).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      light: r.light_value,
+    })),
+  [bucketed]);
 
-  const motionDS = useMemo(() => [
-    { label: 'Motion', data: bucketed.map(r => ({ x: r.created_at, y: r.motion ? 1 : 0 })), borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.2)', borderWidth: 2, fill: true, pointRadius: 0, stepped: true },
-  ], [bucketed]);
+  const motionData = useMemo(() =>
+    bucketed.map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      motion: r.motion ? 1 : 0,
+    })),
+  [bucketed]);
 
   const peakData = useMemo(() => {
     const hours = Array.from({ length: 24 }, () => ({ motion: 0, total: 0 }));
@@ -78,16 +94,12 @@ export default function Room2View() {
     { title: 'Air Quality', ...calcStats(rangeData, cfg.gasField), unit: '', dec: 0 },
   ], [rangeData, cfg.gasField]);
 
-  const motionScales = useMemo(() => ({
-    y: { min: 0, max: 1, grid: { color: 'rgba(31,38,48,0.5)' }, ticks: { color: '#7d8590', stepSize: 1, callback: v => v ? 'on' : 'off', font: { family: 'JetBrains Mono', size: 11 } }, border: { color: '#1f2630' } },
-  }), []);
-
   if (loading && !latest) return <Overlay title="Loading" message="Fetching Room 2 data…" visible />;
 
   return (
     <div className="view active">
       <div className="section-header">
-        <div><div className="section-title">Room 2 — <span style={{ color: 'var(--r2)' }}>ESP32</span></div><div className="section-sub">DHT22 · BMP280 · MQ135 · LDR · PIR · LCD</div></div>
+        <div><div className="section-title">Room 2</div><div className="section-sub">Climate · Pressure · Air Quality · Light · Motion</div></div>
       </div>
       <DeviceStatus room="room2" latest={latest} />
 
@@ -103,7 +115,7 @@ export default function Room2View() {
           <AqiDisplay score={aqiScore} info={aqiInfo} rawValue={gasVal} />
         </LiveCard>
         <LiveCard label="Light" value={latest?.light_label || '—'} style={{ fontSize: 24 }}>
-          <div className="card-meta">{latest?.light_value != null ? `Raw: ${latest.light_value}` : '—'}</div>
+          <div className="card-meta">{latest?.light_value != null ? `Level: ${latest.light_value}` : '—'}</div>
         </LiveCard>
         <LiveCard label="Motion" value={latest?.motion ? 'Detected' : 'Clear'} style={{ fontSize: 24 }}>
           <div className="card-meta">
@@ -130,21 +142,48 @@ export default function Room2View() {
       </div>
 
       <div className="charts">
-        <ChartCard title="Temperature & Humidity" legend={<><LegendDot color="var(--temp)" label="Temp" /><LegendDot color="var(--humidity)" label="Humidity" /></>}>
-          <TimeSeriesChart datasets={climateDS} scales={{ y: yScale('#fb923c'), y1: yScaleRight('#38bdf8') }} />
-        </ChartCard>
-        <ChartCard title="Pressure" legend={<LegendDot color="var(--pressure)" label="hPa" />}>
-          <TimeSeriesChart datasets={pressureDS} scales={{ y: yScale('#34d399') }} />
-        </ChartCard>
-        <ChartCard title="Air Quality" legend={<LegendDot color="var(--gas)" label="raw" />}>
-          <TimeSeriesChart datasets={airDS} scales={{ y: yScale('#7d8590') }} />
-        </ChartCard>
-        <ChartCard title="Light Level" legend={<LegendDot color="var(--light)" label="raw" />}>
-          <TimeSeriesChart datasets={lightDS} scales={{ y: yScale('#fbbf24') }} />
-        </ChartCard>
-        <ChartCard title="Motion Activity" legend={<LegendDot color="var(--motion)" label="detected" />}>
-          <TimeSeriesChart datasets={motionDS} scales={motionScales} />
-        </ChartCard>
+        <SensorAreaChart
+          title="Temperature & Humidity"
+          description={`Showing ${RANGES[range].label}`}
+          data={climateData}
+          series={[
+            { key: 'temperature', label: 'Temperature °C', color: 'oklch(0.75 0.14 55)' },
+            { key: 'humidity', label: 'Humidity %', color: 'oklch(0.70 0.10 220)' },
+          ]}
+        />
+        <SensorAreaChart
+          title="Pressure"
+          description="Barometric pressure"
+          data={pressureData}
+          series={[
+            { key: 'pressure', label: 'Pressure hPa', color: 'oklch(0.70 0.11 155)' },
+          ]}
+        />
+        <SensorAreaChart
+          title="Air Quality"
+          description="Air quality sensor"
+          data={airData}
+          series={[
+            { key: 'airQuality', label: 'Air Quality', color: 'oklch(0.68 0.12 310)' },
+          ]}
+        />
+        <SensorAreaChart
+          title="Light Level"
+          description="Ambient light sensor"
+          data={lightData}
+          series={[
+            { key: 'light', label: 'Light Level', color: 'oklch(0.78 0.13 85)' },
+          ]}
+        />
+        <SensorAreaChart
+          title="Motion Activity"
+          description="Movement detection"
+          data={motionData}
+          series={[
+            { key: 'motion', label: 'Motion', color: 'oklch(0.78 0.13 85)' },
+          ]}
+          yFormatter={(v) => v ? 'On' : 'Off'}
+        />
       </div>
 
       <div className="section-title">Presence Events</div>

@@ -16,17 +16,17 @@ export const GAS_BREAKPOINTS = [
 export const MOTION_OCCUPIED_MS = 2 * 60 * 1000;
 
 export const CHART_TOOLTIP = {
-  backgroundColor: '#0a0e14',
-  borderColor: '#2a323e',
+  backgroundColor: 'oklch(0.16 0.012 55)',
+  borderColor: 'oklch(0.28 0.012 55)',
   borderWidth: 1,
-  titleColor: '#e6edf3',
-  bodyColor: '#e6edf3',
+  titleColor: 'oklch(0.93 0.01 75)',
+  bodyColor: 'oklch(0.93 0.01 75)',
   padding: 10,
-  titleFont: { family: 'Inter', size: 12, weight: '600' },
-  bodyFont: { family: 'JetBrains Mono', size: 12 },
+  titleFont: { family: 'Nunito Variable, Geist Variable, sans-serif', size: 12, weight: '700' },
+  bodyFont: { family: 'Geist Variable, sans-serif', size: 12 },
 };
 
 export const ROOM_CONFIG = {
-  room1: { table: 'room_monitor', gasField: 'gas_level', accent: '45,212,191', color: '#2dd4bf', name: 'Room 1' },
-  room2: { table: 'esp32_monitor', gasField: 'air_quality', accent: '167,139,250', color: '#a78bfa', name: 'Room 2' },
+  room1: { table: 'room_monitor', gasField: 'gas_level', accent: '190,140,70', color: 'oklch(0.72 0.12 70)', name: 'Room 1' },
+  room2: { table: 'esp32_monitor', gasField: 'air_quality', accent: '120,170,110', color: 'oklch(0.68 0.10 155)', name: 'Room 2' },
 };

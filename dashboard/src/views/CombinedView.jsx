@@ -3,7 +3,8 @@ import { useCombinedData } from '../hooks/useRoomData';
 import { RANGES } from '../config';
 import { fmt, calcAirQuality, calcComfort } from '../utils';
 import RangeTabs from '../components/RangeTabs';
-import { ChartCard, LegendDot, TimeSeriesChart, yScale } from '../components/ChartCard';
+import SensorAreaChart from '../components/SensorAreaChart';
+import CombinedBarChart from '../components/CombinedBarChart';
 import DeviceStatus from '../components/DeviceStatus';
 import Overlay from '../components/Overlay';
 
@@ -34,28 +35,65 @@ export default function CombinedView() {
   const scores = [c1.score, c2.score].filter(v => v != null);
   const avgComfort = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
-  // Chart datasets
-  const tempDS = useMemo(() => [
-    { label: 'Room 1', data: r1Range.filter(r => r.temperature != null).map(r => ({ x: r.created_at, y: r.temperature })), borderColor: '#2dd4bf', backgroundColor: 'rgba(45,212,191,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-    { label: 'Room 2', data: r2Range.filter(r => r.temperature != null).map(r => ({ x: r.created_at, y: r.temperature })), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [r1Range, r2Range]);
+  // Recharts time-series data (overlaid for both rooms)
+  const tempData = useMemo(() => {
+    const map = new Map();
+    r1Range.filter(r => r.temperature != null).forEach(r => {
+      const t = new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+      map.set(t, { ...map.get(t), time: t, room1: r.temperature });
+    });
+    r2Range.filter(r => r.temperature != null).forEach(r => {
+      const t = new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+      map.set(t, { ...map.get(t), time: t, room2: r.temperature });
+    });
+    return [...map.values()].sort((a, b) => a.time.localeCompare(b.time));
+  }, [r1Range, r2Range]);
 
-  const humDS = useMemo(() => [
-    { label: 'Room 1', data: r1Range.filter(r => r.humidity != null).map(r => ({ x: r.created_at, y: r.humidity })), borderColor: '#2dd4bf', backgroundColor: 'rgba(45,212,191,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-    { label: 'Room 2', data: r2Range.filter(r => r.humidity != null).map(r => ({ x: r.created_at, y: r.humidity })), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [r1Range, r2Range]);
+  const humData = useMemo(() => {
+    const map = new Map();
+    r1Range.filter(r => r.humidity != null).forEach(r => {
+      const t = new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+      map.set(t, { ...map.get(t), time: t, room1: r.humidity });
+    });
+    r2Range.filter(r => r.humidity != null).forEach(r => {
+      const t = new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+      map.set(t, { ...map.get(t), time: t, room2: r.humidity });
+    });
+    return [...map.values()].sort((a, b) => a.time.localeCompare(b.time));
+  }, [r1Range, r2Range]);
 
-  const airDS = useMemo(() => [
-    { label: 'Room 1', data: r1Range.filter(r => r.gas_level != null).map(r => ({ x: r.created_at, y: calcAirQuality(r.gas_level) })), borderColor: '#2dd4bf', backgroundColor: 'rgba(45,212,191,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-    { label: 'Room 2', data: r2Range.filter(r => r.air_quality != null).map(r => ({ x: r.created_at, y: calcAirQuality(r.air_quality) })), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3 },
-  ], [r1Range, r2Range]);
+  const airData = useMemo(() => {
+    const map = new Map();
+    r1Range.filter(r => r.gas_level != null).forEach(r => {
+      const t = new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+      map.set(t, { ...map.get(t), time: t, room1: calcAirQuality(r.gas_level) });
+    });
+    r2Range.filter(r => r.air_quality != null).forEach(r => {
+      const t = new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+      map.set(t, { ...map.get(t), time: t, room2: calcAirQuality(r.air_quality) });
+    });
+    return [...map.values()].sort((a, b) => a.time.localeCompare(b.time));
+  }, [r1Range, r2Range]);
+
+  // Bar chart data (averages for comparison)
+  const barData = useMemo(() => {
+    const avg = (arr, key) => {
+      const vals = arr.map(r => r[key]).filter(v => v != null);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    };
+    return [
+      { label: 'Temp °C', room1: avg(r1Range, 'temperature'), room2: avg(r2Range, 'temperature') },
+      { label: 'Humidity %', room1: avg(r1Range, 'humidity'), room2: avg(r2Range, 'humidity') },
+      { label: 'Air Quality', room1: avg(r1Range.map(r => ({ v: calcAirQuality(r.gas_level) })), 'v'), room2: avg(r2Range.map(r => ({ v: calcAirQuality(r.air_quality) })), 'v') },
+    ].filter(d => d.room1 != null || d.room2 != null);
+  }, [r1Range, r2Range]);
 
   if (loading && !room1 && !room2) return <Overlay title="Loading" message="Fetching combined data…" visible />;
 
   return (
     <div className="view active">
       <div className="section-header">
-        <div><div className="section-title">Combined — <span style={{ color: 'var(--r1)' }}>Room 1</span> vs <span style={{ color: 'var(--r2)' }}>Room 2</span></div><div className="section-sub">Side-by-side comparison of both rooms</div></div>
+        <div><div className="section-title">Home Overview</div><div className="section-sub">Side-by-side comparison of both rooms</div></div>
       </div>
       <div className="device-status-row">
         <DeviceStatus room="room1" latest={room1} />
@@ -85,15 +123,45 @@ export default function CombinedView() {
       </div>
 
       <div className="charts">
-        <ChartCard title="Temperature Comparison" legend={<><LegendDot color="var(--r1)" label="Room 1" /><LegendDot color="var(--r2)" label="Room 2" /></>}>
-          <TimeSeriesChart datasets={tempDS} scales={{ y: yScale('#7d8590') }} />
-        </ChartCard>
-        <ChartCard title="Humidity Comparison" legend={<><LegendDot color="var(--r1)" label="Room 1" /><LegendDot color="var(--r2)" label="Room 2" /></>}>
-          <TimeSeriesChart datasets={humDS} scales={{ y: yScale('#7d8590') }} />
-        </ChartCard>
-        <ChartCard title="Air Quality Comparison" legend={<><LegendDot color="var(--r1)" label="Room 1 (MQ2)" /><LegendDot color="var(--r2)" label="Room 2 (MQ135)" /></>}>
-          <TimeSeriesChart datasets={airDS} scales={{ y: { ...yScale('#7d8590'), min: 0, max: 100 } }} />
-        </ChartCard>
+        <SensorAreaChart
+          title="Temperature Comparison"
+          description="Room 1 vs Room 2"
+          data={tempData}
+          series={[
+            { key: 'room1', label: 'Room 1', color: 'oklch(0.72 0.12 70)' },
+            { key: 'room2', label: 'Room 2', color: 'oklch(0.68 0.10 155)' },
+          ]}
+          yFormatter={(v) => `${v}°C`}
+        />
+        <SensorAreaChart
+          title="Humidity Comparison"
+          description="Room 1 vs Room 2"
+          data={humData}
+          series={[
+            { key: 'room1', label: 'Room 1', color: 'oklch(0.72 0.12 70)' },
+            { key: 'room2', label: 'Room 2', color: 'oklch(0.68 0.10 155)' },
+          ]}
+          yFormatter={(v) => `${v}%`}
+        />
+        <SensorAreaChart
+          title="Air Quality Comparison"
+          description="Room 1 vs Room 2"
+          data={airData}
+          series={[
+            { key: 'room1', label: 'Room 1', color: 'oklch(0.72 0.12 70)' },
+            { key: 'room2', label: 'Room 2', color: 'oklch(0.68 0.10 155)' },
+          ]}
+          yFormatter={(v) => `${v}/100`}
+        />
+        <CombinedBarChart
+          title="Average Comparison"
+          description={`Averages over ${RANGES[range].label}`}
+          data={barData}
+          series={[
+            { key: 'room1', label: 'Room 1', color: 'oklch(0.72 0.12 70)' },
+            { key: 'room2', label: 'Room 2', color: 'oklch(0.68 0.10 155)' },
+          ]}
+        />
       </div>
     </div>
   );

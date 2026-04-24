@@ -1,3 +1,5 @@
+import { Home, HandMetal } from 'lucide-react';
+
 export default function PresenceLog({ events }) {
   if (!events || !events.length) return <div style={{ color: 'var(--text-faint)' }}>No presence events</div>;
   return (
@@ -10,7 +12,7 @@ export default function PresenceLog({ events }) {
         const isArr = e.event_type === 'arrived';
         return (
           <div key={i} className="presence-event">
-            <div className={`presence-icon ${isArr ? 'presence-arrived' : 'presence-left'}`}>{isArr ? '🏠' : '👋'}</div>
+            <div className={`presence-icon ${isArr ? 'presence-arrived' : 'presence-left'}`}>{isArr ? <Home size={16} /> : <HandMetal size={16} />}</div>
             <div className="presence-text">
               <div className="presence-name">{e.person} {isArr ? 'arrived' : 'left'}</div>
               <div className="presence-time">{day} {hh}:{mm}</div>

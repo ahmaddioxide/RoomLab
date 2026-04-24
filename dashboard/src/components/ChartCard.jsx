@@ -3,9 +3,9 @@ import { Line, Bar } from 'react-chartjs-2';
 import { CHART_TOOLTIP } from '../config';
 
 const baseScaleOpts = {
-  grid: { color: 'rgba(31,38,48,0.5)' },
-  ticks: { color: '#7d8590', font: { family: 'JetBrains Mono', size: 11 } },
-  border: { color: '#1f2630' },
+  grid: { color: 'oklch(0.28 0.012 55 / 0.5)' },
+  ticks: { color: 'oklch(0.62 0.02 65)', font: { family: 'Geist Variable, sans-serif', size: 11 } },
+  border: { color: 'oklch(0.28 0.012 55)' },
 };
 
 export function yScale(color) {
@@ -32,7 +32,7 @@ export function TimeSeriesChart({ datasets, scales, height = 220 }) {
   }), [scales]);
 
   const data = useMemo(() => ({ datasets }), [datasets]);
-  return <div style={{ height }}><Line data={data} options={options} /></div>;
+  return <div className="chart-canvas-wrap"><Line data={data} options={options} /></div>;
 }
 
 export function BarChartCard({ labels, data: barData, accentRgb = '45,212,191', max = 100, yLabel, height = 220 }) {
@@ -41,8 +41,8 @@ export function BarChartCard({ labels, data: barData, accentRgb = '45,212,191', 
     responsive: true, maintainAspectRatio: false, animation: false,
     plugins: { legend: { display: false }, tooltip: { ...CHART_TOOLTIP, callbacks: { label: i => `${i.raw}%${yLabel ? ' ' + yLabel : ''}` } } },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#7d8590', font: { family: 'JetBrains Mono', size: 10 } }, border: { color: '#1f2630' } },
-      y: { min: 0, max, ticks: { color: '#7d8590', callback: v => v + '%', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(31,38,48,0.5)' }, border: { color: '#1f2630' } },
+      x: { grid: { display: false }, ticks: { color: 'oklch(0.62 0.02 65)', font: { family: 'Geist Variable, sans-serif', size: 10 } }, border: { color: 'oklch(0.28 0.012 55)' } },
+      y: { min: 0, max, ticks: { color: 'oklch(0.62 0.02 65)', callback: v => v + '%', font: { family: 'Geist Variable, sans-serif', size: 10 } }, grid: { color: 'oklch(0.28 0.012 55 / 0.5)' }, border: { color: 'oklch(0.28 0.012 55)' } },
     },
   }), [max, yLabel]);
 
@@ -58,7 +58,7 @@ export function BarChartCard({ labels, data: barData, accentRgb = '45,212,191', 
     }],
   }), [labels, barData, accentRgb, maxVal]);
 
-  return <div style={{ height }}><Bar data={chartData} options={options} /></div>;
+  return <div className="chart-canvas-wrap"><Bar data={chartData} options={options} /></div>;
 }
 
 export function ChartCard({ title, legend, children }) {

@@ -42,7 +42,7 @@ export function AqiDisplay({ score, info, rawValue }) {
           {info.label}
         </span>
       </div>
-      <div className="aqi-raw">{rawValue != null ? `Raw: ${rawValue}` : ''}</div>
+      <div className="aqi-raw">{rawValue != null ? `Sensor: ${rawValue}` : ''}</div>
     </>
   );
 }

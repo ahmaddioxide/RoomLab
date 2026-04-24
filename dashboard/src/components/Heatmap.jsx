@@ -25,7 +25,7 @@ export default function Heatmap({ rows, accentRgb = '45,212,191' }) {
 
   return (
     <div className="heatmap-wrap">
-      <div className="heatmap-grid" style={{ gridTemplateColumns: 'auto repeat(24, 22px)' }}>
+      <div className="heatmap-grid">
         <div />
         {Array.from({ length: 24 }, (_, h) => (
           <div key={h} className="heatmap-header-cell">{h % 6 === 0 ? hourAmPm(h) : ''}</div>
