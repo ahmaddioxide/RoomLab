@@ -14,7 +14,6 @@ extern "C" {
 #define DHTTYPE DHT11
 #define MQ2_PIN A0
 #define BUZZER_PIN D0
-#define PIR_PIN D6
 
 #ifndef WIFI_SSID
 #error "Missing WIFI_SSID. Copy secrets.example.h to secrets.h and fill your values."
@@ -40,13 +39,8 @@ DHT dht(DHTPIN, DHTTYPE);
 ESP8266WebServer server(80);
 
 bool gasAlert = false;
-bool motionDetected = false;
-bool lastMotionState = false;
 unsigned long lastSupabase = 0;
-unsigned long lastMotionLog = 0;
-unsigned long lastMotionSend = 0;
 unsigned long lastRead = 0;
-const unsigned long MOTION_SEND_COOLDOWN = 10000;
 const unsigned long SUPABASE_INTERVAL = 120000;
 const unsigned long SUPABASE_RETRY_INTERVAL = 15000;
 bool sendPending = false;
@@ -99,7 +93,7 @@ void sendToSupabase() {
   doc["humidity"] = currentHum;
   doc["gas_level"] = currentGas;
   doc["gas_alert"] = gasAlert;
-  doc["motion"] = motionDetected;
+  doc["motion"] = false;
 
   String body;
   serializeJson(doc, body);
@@ -177,9 +171,7 @@ void handleRoot() {
   html += R"(<div class="card temp"><div class="card-label">Temperature</div><div class="card-value">)" + String((int)currentTemp) + R"(<span class="card-unit">°C</span></div></div>)";
   html += R"(<div class="card hum"><div class="card-label">Humidity</div><div class="card-value">)" + String((int)currentHum) + R"(<span class="card-unit">%</span></div></div>)";
   html += R"(<div class="card gas"><div class="card-label">Air Quality</div><div class="card-value">)" + String(currentGas) + R"(<span class="card-unit">raw</span></div><div class="gas-label" style="color:)" + gasColor + R"(;">)" + gasLabel + R"(</div></div>)";
-  html += motionDetected ?
-    R"(<div class="card motion"><div class="card-label">Motion</div><div class="card-value">Active</div></div>)" :
-    R"(<div class="card motion"><div class="card-label">Motion</div><div class="card-value" style="color:#1a2a38;">None</div></div>)";
+  html += R"(<div class="card motion"><div class="card-label">Motion</div><div class="card-value" style="color:#4a6070;font-size:18px;">Sensor offline</div></div>)";
 
   html += R"rawhtml(
 </div>
@@ -193,7 +185,6 @@ void setup() {
   Serial.begin(115200);
   Serial.println("[Setup] Starting...");
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(PIR_PIN, INPUT);
   digitalWrite(BUZZER_PIN, LOW);
   dht.begin();
   WiFi.begin(ssid, password);
@@ -217,29 +208,6 @@ void setup() {
 void loop() {
   server.handleClient();
   currentGas = analogRead(MQ2_PIN);
-
-  int motion = digitalRead(PIR_PIN);
-  motionDetected = (motion == HIGH);
-
-  if (motionDetected != lastMotionState) {
-    lastMotionState = motionDetected;
-    if (motionDetected) {
-      Serial.println("[Motion] DETECTED!");
-      playWelcome();
-    } else {
-      Serial.println("[Motion] Cleared");
-    }
-    if (millis() - lastMotionSend > MOTION_SEND_COOLDOWN) {
-      lastMotionSend = millis();
-      sendToSupabase();
-    }
-  }
-
-  if (millis() - lastMotionLog > 3000) {
-    lastMotionLog = millis();
-    Serial.println("[Motion] " + String(motionDetected ? "ACTIVE" : "none"));
-    Serial.println("[Gas] " + String(currentGas));
-  }
 
   if (currentGas > 700) {
     if (!gasAlert) {

@@ -8,6 +8,7 @@
 // Use the REST endpoint for your table, for example:
 // https://<project-ref>.supabase.co/rest/v1/room_monitor
 #define SUPABASE_URL "https://YOUR_PROJECT_REF.supabase.co/rest/v1/room_monitor"
+#define SUPABASE_BASE_URL "https://YOUR_PROJECT_REF.supabase.co"
 
 // Supabase anon or service key used by the ESP8266 firmware uploader.
 #define SUPABASE_KEY "YOUR_SUPABASE_KEY"

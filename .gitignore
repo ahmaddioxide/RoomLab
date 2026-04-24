@@ -1,5 +1,6 @@
 # Firmware local secrets
 secrets.h
+secrets_room2.h
 
 # Common local env files
 .env
@@ -8,6 +9,11 @@ secrets.h
 
 # Wrangler local artifacts
 worker/.wrangler/
+
+#node modules
+node_modules/
+dashboard/node_modules/
+worker/node_modules/
 
 # OS/editor noise
 .DS_Store

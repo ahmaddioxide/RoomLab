@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Room Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --card: #11161d;
+    --card-hover: #161c25;
+    --border: #1f2630;
+    --text: #e6edf3;
+    --text-dim: #7d8590;
+    --text-faint: #4a5260;
+    --teal: #2dd4bf;
+    --temp: #fb923c;
+    --humidity: #38bdf8;
+    --gas: #a78bfa;
+    --motion: #fbbf24;
+    --alert: #ef4444;
+    --ok: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { overflow-x: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .container { max-width: 1400px; margin: 0 auto; width: 100%; overflow-x: hidden; }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h1::before {
+    content: '';
+    width: 8px; height: 8px;
+    background: var(--teal);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--teal);
+  }
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .conn { display: flex; align-items: center; gap: 6px; }
+  .conn-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+  }
+  .conn.live .conn-dot {
+    background: var(--ok);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ---- Live Grid ---- */
+  .live-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+    min-width: 0;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 0;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #2a323e; }
+  .card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .card-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .card-unit {
+    font-size: 18px;
+    color: var(--text-dim);
+    margin-left: 4px;
+    font-weight: 500;
+  }
+  .card-meta {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-ok {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--ok);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .badge-alert {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--alert);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    animation: pulse 1.5s infinite;
+  }
+  .badge-warn {
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--motion);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+
+  /* ---- Trend Indicators ---- */
+  .trend-indicator {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .trend-up { color: var(--alert); }
+  .trend-down { color: var(--humidity); }
+  .trend-stable { color: var(--text-faint); }
+
+  /* ---- AQI Bar ---- */
+  .aqi-bar-wrap {
+    margin-top: 10px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .aqi-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background 0.5s ease;
+  }
+  .aqi-raw {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ---- Time Since Motion ---- */
+  .time-since {
+    margin-top: 8px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+  }
+
+  /* ---- Comfort Section ---- */
+  .comfort-section {
+    display: flex;
+    gap: 24px;
+    align-items: stretch;
+    margin-bottom: 32px;
+  }
+  .comfort-gauge-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .comfort-gauge-card .card-label { margin-bottom: 8px; align-self: flex-start; }
+  .comfort-canvas-wrap {
+    width: 220px;
+    height: 130px;
+    position: relative;
+  }
+  .comfort-canvas-wrap canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .comfort-score-text {
+    text-align: center;
+    margin-top: 4px;
+  }
+  .comfort-score-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .comfort-score-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+  }
+  .comfort-details-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-content: center;
+  }
+  .comfort-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .comfort-detail-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  .comfort-detail-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .comfort-detail-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  /* ---- Range Bar ---- */
+  .range-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .range-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .range-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .range-tab:hover { color: var(--text); }
+  .range-tab.active {
+    background: var(--card-hover);
+    color: var(--text);
+  }
+  .range-meta { font-size: 12px; color: var(--text-dim); }
+
+  /* ---- Charts ---- */
+  .charts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chart-title { font-size: 14px; font-weight: 600; }
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .legend-line {
+    width: 16px; height: 0;
+    border-top: 2px dashed;
+  }
+  .chart-wrap { position: relative; height: 240px; }
+
+  /* ---- Insights Grid ---- */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  /* ---- Occupancy Heatmap ---- */
+  .heatmap-wrap {
+    overflow-x: auto;
+  }
+  .heatmap-grid {
+    display: inline-grid;
+    gap: 2px;
+  }
+  .heatmap-header-cell {
+    font-size: 9px;
+    color: var(--text-faint);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 0 0 4px;
+    white-space: nowrap;
+  }
+  .heatmap-day-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    padding-right: 8px;
+    white-space: nowrap;
+  }
+  .heatmap-cell {
+    width: 24px;
+    height: 18px;
+    border-radius: 3px;
+    cursor: default;
+    transition: opacity 0.15s;
+    position: relative;
+  }
+  .heatmap-cell:hover { opacity: 0.8; }
+  .heatmap-cell[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0a0e14;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 10px;
+    color: var(--text-faint);
+  }
+  .heatmap-legend-bar {
+    display: flex;
+    gap: 1px;
+    margin: 0 4px;
+  }
+  .heatmap-legend-bar span {
+    width: 12px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  /* ---- Summary Cards ---- */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    transition: border-color 0.2s;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .summary-card:hover { border-color: #2a323e; }
+  .summary-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .summary-body { min-width: 0; flex: 1; }
+  .summary-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .summary-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .summary-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+
+  /* ---- Stats Grid ---- */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .stat-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+  }
+  .stat-row + .stat-row { border-top: 1px solid var(--border); }
+  .stat-key { font-size: 12px; color: var(--text-dim); }
+  .stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* ---- Overlay ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 14, 20, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+  .overlay-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 440px;
+    text-align: center;
+  }
+  .overlay-card h2 { font-size: 16px; margin-bottom: 8px; }
+  .overlay-card p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--teal);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 1000px) {
+    .comfort-section { flex-direction: column; }
+    .comfort-gauge-card { flex: unset; }
+    .insights-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .live-grid { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid { grid-template-columns: 1fr; }
+    .comfort-details-card { grid-template-columns: 1fr; }
+    body { padding: 16px; }
+    .card-value { font-size: 30px; }
+    .live-grid, .charts, .insights-grid, .stats-grid, .comfort-section, .range-bar {
+      max-width: 100%;
+      min-width: 0;
+    }
+    .card, .chart-card, .stat-card, .comfort-gauge-card, .comfort-details-card {
+      min-width: 0;
+      overflow: hidden;
+      word-break: break-word;
+    }
+  }
+  @media (max-width: 480px) {
+    body { padding: 12px; }
+    .container { overflow-x: hidden; }
+    h1 { font-size: 18px; }
+    .card-value { font-size: 26px; }
+    .section-title { font-size: 14px; }
+    .live-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card { padding: 14px; }
+    .card-unit { font-size: 14px; }
+
+    /* Insights heatmap: scale down cells for small screens */
+    .heatmap-cell { width: 12px; height: 12px; }
+    .heatmap-grid { gap: 1px; }
+    .heatmap-header-cell { font-size: 7px; }
+    .heatmap-day-label { font-size: 9px; padding-right: 4px; }
+    .heatmap-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -12px;
+      padding: 0 12px;
+    }
+
+    /* Peak hours chart: reduce height on mobile */
+    .chart-wrap { height: 200px; }
+    .chart-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .chart-legend { flex-wrap: wrap; gap: 8px; }
+
+    /* Summary cards */
+    .summary-grid { grid-template-columns: 1fr; gap: 10px; }
+    .summary-card { padding: 14px; gap: 12px; }
+    .summary-icon { width: 36px; height: 36px; font-size: 16px; }
+    .summary-value { font-size: 20px; }
+
+    /* Stats grid */
+    .stats-grid { gap: 12px; }
+    .stat-card { padding: 16px; }
+    .stat-title { font-size: 11px; margin-bottom: 10px; }
+    .stat-val { font-size: 13px; }
+
+    /* Range tabs: scrollable on small screens */
+    .range-bar { flex-direction: column; align-items: flex-start; }
+    .range-tabs { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+    .range-tab { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+
+    /* Comparison chart filter tabs */
+    .chart-card { padding: 16px; }
+    #compTabs { flex-wrap: nowrap; }
+
+    /* Comfort section */
+    .comfort-gauge-card { padding: 16px; }
+    .comfort-details-card { padding: 16px; gap: 12px; }
+    .comfort-canvas-wrap { width: 180px; height: 110px; }
+    .comfort-score-num { font-size: 26px; }
+    .comfort-detail-value { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Room Monitor</h1>
+    <div class="status-bar">
+      <span id="lastUpdated">—</span>
+      <div class="conn" id="conn">
+        <div class="conn-dot"></div>
+        <span id="connText">connecting</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======== LIVE CARDS ======== -->
+  <div class="live-grid">
+    <div class="card">
+      <div class="card-label">Temperature</div>
+      <div><span class="card-value" id="liveTemp">—</span><span class="card-unit">°C</span></div>
+      <div class="card-meta"><span id="tempTrend" class="trend-indicator trend-stable">—</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Humidity</div>
+      <div><span class="card-value" id="liveHum">—</span><span class="card-unit">%</span></div>
+      <div class="card-meta"><span id="humTrend" class="trend-indicator trend-stable">—</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Air Quality</div>
+      <div><span class="card-value" id="aqiScore">—</span><span class="card-unit" id="aqiUnit">/100</span></div>
+      <div class="aqi-bar-wrap"><div class="aqi-bar-fill" id="aqiFill" style="width:0"></div></div>
+      <div class="card-meta"><span class="badge badge-ok" id="aqiBadge">—</span></div>
+      <div class="aqi-raw" id="aqiRaw"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Motion</div>
+      <div><span class="card-value" id="liveMotion" style="font-size:26px;">—</span></div>
+      <div class="card-meta" id="motionMeta">—</div>
+      <div class="time-since" id="timeSinceMotion">—</div>
+    </div>
+  </div>
+
+  <!-- ======== COMFORT SECTION ======== -->
+  <div class="comfort-section">
+    <div class="comfort-gauge-card">
+      <div class="card-label">Comfort Index</div>
+      <div class="comfort-canvas-wrap">
+        <canvas id="comfortGauge"></canvas>
+      </div>
+      <div class="comfort-score-text">
+        <div class="comfort-score-num" id="comfortScoreNum">—</div>
+        <div class="comfort-score-label" id="comfortScoreLabel">—</div>
+      </div>
+    </div>
+    <div class="comfort-details-card">
+      <div class="comfort-detail">
+        <div class="comfort-detail-label">Feels Like</div>
+        <div class="comfort-detail-value" id="feelsLike">—</div>
+        <div class="comfort-detail-hint">Heat index adjusted</div>
+      </div>
+      <div class="comfort-detail">
+        <div class="comfort-detail-label">Dew Point</div>
+        <div class="comfort-detail-value" id="dewPoint">—</div>
+        <div class="comfort-detail-hint">Condensation risk</div>
+      </div>
+      <div class="comfort-detail">
+        <div class="comfort-detail-label">Temp Zone</div>
+        <div class="comfort-detail-value" id="tempZone">—</div>
+        <div class="comfort-detail-hint">Ideal: 20 – 26 °C</div>
+      </div>
+      <div class="comfort-detail">
+        <div class="comfort-detail-label">Humidity Zone</div>
+        <div class="comfort-detail-value" id="humZone">—</div>
+        <div class="comfort-detail-hint">Ideal: 30 – 60 %</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== RANGE BAR ======== -->
+  <div class="range-bar">
+    <div class="range-tabs" id="rangeTabs">
+      <button class="range-tab" data-range="1h">1H</button>
+      <button class="range-tab active" data-range="6h">6H</button>
+      <button class="range-tab" data-range="24h">24H</button>
+      <button class="range-tab" data-range="7d">7D</button>
+      <button class="range-tab" data-range="30d">30D</button>
+    </div>
+    <div class="range-meta" id="rangeMeta">—</div>
+  </div>
+
+  <!-- ======== CHARTS ======== -->
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Temperature & Humidity</div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div>Temp °C</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div>Humidity %</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="climateChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Today vs Yesterday</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="range-tabs" id="compTabs">
+            <button class="range-tab active" data-comp="both">Both</button>
+            <button class="range-tab" data-comp="temp">Temp</button>
+            <button class="range-tab" data-comp="hum">Humidity</button>
+          </div>
+          <div class="chart-legend" id="compLegend">
+            <div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div>Today Temp</div>
+            <div class="legend-item"><div class="legend-line" style="border-color:#fb923c;"></div>Yesterday</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div>Today Hum</div>
+            <div class="legend-item"><div class="legend-line" style="border-color:#38bdf8;"></div>Yesterday</div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="comparisonChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Gas Level</div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#a78bfa;"></div>level</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="gasChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Motion Activity</div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div>detected</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="motionChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ======== INSIGHTS ======== -->
+  <div class="section-title">Insights</div>
+  <div class="insights-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Room Occupancy — Last 7 Days</div>
+      </div>
+      <div class="heatmap-wrap" id="heatmapWrap">
+        <div id="heatmapGrid" style="color:var(--text-faint);font-size:13px;padding:20px 0;">Loading heatmap…</div>
+      </div>
+      <div class="heatmap-legend">
+        <span>Less</span>
+        <div class="heatmap-legend-bar">
+          <span style="background:rgba(45,212,191,0.05);border:1px solid var(--border)"></span>
+          <span style="background:rgba(45,212,191,0.2)"></span>
+          <span style="background:rgba(45,212,191,0.4)"></span>
+          <span style="background:rgba(45,212,191,0.6)"></span>
+          <span style="background:rgba(45,212,191,0.85)"></span>
+        </div>
+        <span>More activity</span>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Peak Activity Hours</div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--teal);"></div>motion %</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="peakHoursChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ======== SUMMARY CARDS ======== -->
+  <div class="section-title">Summary</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(251,146,60,0.15);color:#fb923c;">🌡</div>
+      <div class="summary-body">
+        <div class="summary-label">This Week Avg Temp</div>
+        <div class="summary-value" id="weekAvgTemp">—</div>
+        <div class="summary-sub" id="weekTempRange">—</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(251,146,60,0.15);color:#fb923c;">📅</div>
+      <div class="summary-body">
+        <div class="summary-label">This Month Avg Temp</div>
+        <div class="summary-value" id="monthAvgTemp">—</div>
+        <div class="summary-sub" id="monthTempRange">—</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(45,212,191,0.15);color:#2dd4bf;">🏠</div>
+      <div class="summary-body">
+        <div class="summary-label">Weekly Occupancy</div>
+        <div class="summary-value" id="weekOccupancy">—</div>
+        <div class="summary-sub" id="weekOccupancySub">—</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon" style="background:rgba(45,212,191,0.15);color:#2dd4bf;">📊</div>
+      <div class="summary-body">
+        <div class="summary-label">Monthly Occupancy</div>
+        <div class="summary-value" id="monthOccupancy">—</div>
+        <div class="summary-sub" id="monthOccupancySub">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== STATS ======== -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-title">Temperature</div>
+      <div class="stat-row"><span class="stat-key">Min</span><span class="stat-val" id="tempMin">—</span></div>
+      <div class="stat-row"><span class="stat-key">Avg</span><span class="stat-val" id="tempAvg">—</span></div>
+      <div class="stat-row"><span class="stat-key">Max</span><span class="stat-val" id="tempMax">—</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Humidity</div>
+      <div class="stat-row"><span class="stat-key">Min</span><span class="stat-val" id="humMin">—</span></div>
+      <div class="stat-row"><span class="stat-key">Avg</span><span class="stat-val" id="humAvg">—</span></div>
+      <div class="stat-row"><span class="stat-key">Max</span><span class="stat-val" id="humMax">—</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Gas Level</div>
+      <div class="stat-row"><span class="stat-key">Min</span><span class="stat-val" id="gasMin">—</span></div>
+      <div class="stat-row"><span class="stat-key">Avg</span><span class="stat-val" id="gasAvg">—</span></div>
+      <div class="stat-row"><span class="stat-key">Max</span><span class="stat-val" id="gasMax">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="spinner" id="spinner"></div>
+    <h2 id="overlayTitle">Connecting to Supabase</h2>
+    <p id="overlayMsg">Loading sensor data…</p>
+  </div>
+</div>
+
+<script>
+/* ==================== CONFIG ==================== */
+const API_BASE          = 'https://home-lab-api.ahmadmahmood296.workers.dev';
+
+const RANGES = {
+  '1h':  { ms: 1*60*60*1000,    bucketMin: 0,   label: 'last hour' },
+  '6h':  { ms: 6*60*60*1000,    bucketMin: 0,   label: 'last 6 hours' },
+  '24h': { ms: 24*60*60*1000,   bucketMin: 5,   label: 'last 24 hours' },
+  '7d':  { ms: 7*24*60*60*1000, bucketMin: 30,  label: 'last 7 days' },
+  '30d': { ms: 30*24*60*60*1000,bucketMin: 180, label: 'last 30 days' },
+};
+
+const GAS_BREAKPOINTS = [
+  { gas: 0,    score: 100 },
+  { gas: 100,  score: 90 },
+  { gas: 300,  score: 60 },
+  { gas: 500,  score: 40 },
+  { gas: 700,  score: 20 },
+  { gas: 1024, score: 0 },
+];
+
+const MOTION_OCCUPIED_MS = 2 * 60 * 1000;
+
+/* ==================== STATE ==================== */
+let currentRange = '6h';
+let charts = {};
+let recentRows = [];
+let lastMotionTime = null;
+let motionTickerInterval = null;
+let latestReading = null;
+let comparisonAllRows = null;
+let comparisonMode = 'both';
+
+/* ==================== UI UTILITIES ==================== */
+function showOverlay(title, msg, isError = false) {
+  document.getElementById('overlayTitle').textContent = title;
+  document.getElementById('overlayMsg').textContent = msg;
+  document.getElementById('spinner').style.display = isError ? 'none' : 'block';
+  document.getElementById('overlay').style.display = 'flex';
+}
+function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
+
+function fmt(n, d=1) { return n == null ? '—' : Number(n).toFixed(d); }
+
+function hourAmPm(h) {
+  const period = h < 12 ? 'AM' : 'PM';
+  const hr = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hr} ${period}`;
+}
+
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function durationStr(ms) {
+  const totalMin = Math.floor(ms / 60000);
+  const hrs = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
+
+async function apiGet(path, params = {}) {
+  const url = new URL(path, API_BASE);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null) url.searchParams.set(k, String(v));
+  });
+
+  const res = await fetch(url.toString());
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  return body;
+}
+
+/* ==================== DATA PROCESSING ==================== */
+function bucketize(rows, bucketMin) {
+  if (!bucketMin) return rows;
+  const ms = bucketMin * 60 * 1000;
+  const buckets = new Map();
+  for (const r of rows) {
+    const t = new Date(r.created_at).getTime();
+    const key = Math.floor(t / ms) * ms;
+    if (!buckets.has(key)) buckets.set(key, { temp:[], hum:[], gas:[], motion:0 });
+    const b = buckets.get(key);
+    if (r.temperature != null) b.temp.push(r.temperature);
+    if (r.humidity != null)    b.hum.push(r.humidity);
+    if (r.gas_level != null)   b.gas.push(r.gas_level);
+    if (r.motion)              b.motion += 1;
+  }
+  const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+  return [...buckets.entries()].sort((a,b)=>a[0]-b[0]).map(([k,b]) => ({
+    created_at: new Date(k).toISOString(),
+    temperature: avg(b.temp),
+    humidity:    avg(b.hum),
+    gas_level:   avg(b.gas),
+    motion:      b.motion > 0,
+  }));
+}
+
+/* ==================== CALCULATIONS ==================== */
+function calcAirQuality(gasLevel) {
+  if (gasLevel == null) return null;
+  for (let i = 0; i < GAS_BREAKPOINTS.length - 1; i++) {
+    const a = GAS_BREAKPOINTS[i], b = GAS_BREAKPOINTS[i + 1];
+    if (gasLevel >= a.gas && gasLevel <= b.gas) {
+      const t = (gasLevel - a.gas) / (b.gas - a.gas);
+      return Math.round(a.score + t * (b.score - a.score));
+    }
+  }
+  return gasLevel <= 0 ? 100 : 0;
+}
+
+function getAQIInfo(score) {
+  if (score == null) return { label: '—', color: '#7d8590', badgeCls: '' };
+  if (score >= 80) return { label: 'Excellent', color: '#22c55e', badgeCls: 'badge-ok' };
+  if (score >= 60) return { label: 'Good',      color: '#4ade80', badgeCls: 'badge-ok' };
+  if (score >= 40) return { label: 'Moderate',   color: '#fbbf24', badgeCls: 'badge-warn' };
+  if (score >= 20) return { label: 'Poor',       color: '#fb923c', badgeCls: 'badge-warn' };
+  return              { label: 'Hazardous',  color: '#ef4444', badgeCls: 'badge-alert' };
+}
+
+function calcHeatIndex(tempC, rh) {
+  if (tempC == null || rh == null) return null;
+  if (tempC < 20) return tempC;
+  const T = tempC * 9 / 5 + 32;
+  const R = rh;
+  let HI = 0.5 * (T + 61 + (T - 68) * 1.2 + R * 0.094);
+  if (HI >= 80) {
+    HI = -42.379 + 2.04901523*T + 10.14333127*R
+      - 0.22475541*T*R - 0.00683783*T*T - 0.05481717*R*R
+      + 0.00122874*T*T*R + 0.00085282*T*R*R - 0.00000199*T*T*R*R;
+    if (R < 13 && T > 80 && T < 112) {
+      HI -= ((13 - R) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
+    } else if (R > 85 && T > 80 && T < 87) {
+      HI += ((R - 85) / 10) * ((87 - T) / 5);
+    }
+  }
+  return (HI - 32) * 5 / 9;
+}
+
+function calcDewPoint(tempC, rh) {
+  if (tempC == null || rh == null) return null;
+  const a = 17.27, b = 237.7;
+  const alpha = (a * tempC) / (b + tempC) + Math.log(rh / 100);
+  return (b * alpha) / (a - alpha);
+}
+
+function calcComfort(temp, humidity) {
+  if (temp == null || humidity == null) return { score: null, label: '—', color: '#7d8590' };
+  let tempScore;
+  if (temp >= 20 && temp <= 26)  tempScore = 100 - Math.abs(temp - 23) * 5;
+  else if (temp < 20)           tempScore = Math.max(0, 70 - (20 - temp) * 7);
+  else                          tempScore = Math.max(0, 70 - (temp - 26) * 7);
+
+  let humScore;
+  if (humidity >= 30 && humidity <= 60)  humScore = 100 - Math.abs(humidity - 45) * 2;
+  else if (humidity < 30)               humScore = Math.max(0, 70 - (30 - humidity) * 3);
+  else                                  humScore = Math.max(0, 70 - (humidity - 60) * 3);
+
+  const score = Math.round(tempScore * 0.6 + humScore * 0.4);
+  let label, color;
+  if (score >= 80)      { label = 'Comfortable';  color = '#22c55e'; }
+  else if (score >= 60) { label = 'Acceptable';    color = '#4ade80'; }
+  else if (score >= 40) { label = 'Uncomfortable'; color = '#fbbf24'; }
+  else if (score >= 20) { label = 'Poor';           color = '#fb923c'; }
+  else                  { label = 'Critical';       color = '#ef4444'; }
+  return { score, label, color };
+}
+
+function computeTrends(rows) {
+  if (rows.length < 3) return { temp: null, hum: null, gas: null };
+  function slope(vals) {
+    if (vals.length < 3) return null;
+    const n = vals.length;
+    let sx = 0, sy = 0, sxy = 0, sxx = 0;
+    for (let i = 0; i < n; i++) {
+      sx += vals[i].x; sy += vals[i].y;
+      sxy += vals[i].x * vals[i].y;
+      sxx += vals[i].x * vals[i].x;
+    }
+    const d = n * sxx - sx * sx;
+    return d === 0 ? 0 : (n * sxy - sx * sy) / d;
+  }
+  const base = new Date(rows[0].created_at).getTime();
+  const mapField = (field) => rows.filter(r => r[field] != null)
+    .map(r => ({ x: (new Date(r.created_at).getTime() - base) / 3600000, y: r[field] }));
+  return {
+    temp: slope(mapField('temperature')),
+    hum:  slope(mapField('humidity')),
+    gas:  slope(mapField('gas_level')),
+  };
+}
+
+function findLastMotion(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].motion) {
+      lastMotionTime = new Date(rows[i].created_at);
+      return;
+    }
+  }
+}
+
+/* ==================== CHART HELPERS ==================== */
+const CHART_TOOLTIP = {
+  backgroundColor: '#0a0e14',
+  borderColor: '#2a323e',
+  borderWidth: 1,
+  titleColor: '#e6edf3',
+  bodyColor: '#e6edf3',
+  padding: 10,
+  titleFont: { family: 'Inter', size: 12, weight: '600' },
+  bodyFont: { family: 'JetBrains Mono', size: 12 },
+};
+
+function makeChart(id, datasets, extraScales = {}) {
+  const ctx = document.getElementById(id);
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: { legend: { display: false }, tooltip: CHART_TOOLTIP },
+      scales: {
+        x: {
+          type: 'time',
+          time: { tooltipFormat: 'MMM d, HH:mm' },
+          grid: { color: 'rgba(31,38,48,0.5)' },
+          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, maxRotation: 0 },
+          border: { color: '#1f2630' },
+        },
+        ...extraScales,
+      },
+    },
+  });
+}
+
+/* ==================== CHART RENDERERS ==================== */
+function renderClimate(rows) {
+  const tempData = rows.filter(r => r.temperature != null).map(r => ({ x: r.created_at, y: r.temperature }));
+  const humData  = rows.filter(r => r.humidity != null).map(r => ({ x: r.created_at, y: r.humidity }));
+  makeChart('climateChart', [
+    { label: 'Temp', data: tempData, borderColor: '#fb923c',
+      backgroundColor: 'rgba(251,146,60,0.08)', borderWidth: 2,
+      pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y' },
+    { label: 'Humidity', data: humData, borderColor: '#38bdf8',
+      backgroundColor: 'rgba(56,189,248,0.08)', borderWidth: 2,
+      pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1' },
+  ], {
+    y:  { position: 'left',  grid: { color: 'rgba(31,38,48,0.5)' },
+          ticks: { color: '#fb923c', font: { family: 'JetBrains Mono', size: 11 } }, border: { color: '#1f2630' } },
+    y1: { position: 'right', grid: { drawOnChartArea: false },
+          ticks: { color: '#38bdf8', font: { family: 'JetBrains Mono', size: 11 } }, border: { color: '#1f2630' } },
+  });
+}
+
+function renderGas(rows) {
+  const data = rows.filter(r => r.gas_level != null).map(r => ({ x: r.created_at, y: r.gas_level }));
+  makeChart('gasChart', [{
+    label: 'Gas', data, borderColor: '#a78bfa',
+    backgroundColor: 'rgba(167,139,250,0.15)',
+    borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 4, tension: 0.3,
+  }], {
+    y: { grid: { color: 'rgba(31,38,48,0.5)' },
+         ticks: { color: '#7d8590', font: { family: 'JetBrains Mono', size: 11 } }, border: { color: '#1f2630' } },
+  });
+}
+
+function renderMotion(rows) {
+  const data = rows.map(r => ({ x: r.created_at, y: r.motion ? 1 : 0 }));
+  makeChart('motionChart', [{
+    label: 'Motion', data, borderColor: '#fbbf24',
+    backgroundColor: 'rgba(251,191,36,0.2)',
+    borderWidth: 2, fill: true, pointRadius: 0, stepped: true,
+  }], {
+    y: { min: 0, max: 1,
+         grid: { color: 'rgba(31,38,48,0.5)' },
+         ticks: { color: '#7d8590', stepSize: 1,
+                  callback: v => v ? 'on' : 'off',
+                  font: { family: 'JetBrains Mono', size: 11 } },
+         border: { color: '#1f2630' } },
+  });
+}
+
+function renderDailyComparison(allRows, mode) {
+  if (allRows) comparisonAllRows = allRows;
+  if (!comparisonAllRows) return;
+  mode = mode || comparisonMode;
+  comparisonMode = mode;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000);
+
+  const today = comparisonAllRows.filter(r => new Date(r.created_at) >= todayStart);
+  const yesterday = comparisonAllRows.filter(r => {
+    const d = new Date(r.created_at);
+    return d >= yesterdayStart && d < todayStart;
+  });
+
+  function toHourData(rows, field) {
+    return rows.filter(r => r[field] != null).map(r => {
+      const d = new Date(r.created_at);
+      return { x: d.getHours() + d.getMinutes() / 60, y: r[field] };
+    });
+  }
+
+  const ds = [];
+  const showTemp = mode === 'both' || mode === 'temp';
+  const showHum = mode === 'both' || mode === 'hum';
+
+  // Draw yesterday FIRST (background), then today ON TOP so solid lines are always visible
+  if (showTemp) {
+    ds.push({ label: 'Yesterday Temp', data: toHourData(yesterday, 'temperature'), borderColor: 'rgba(251,146,60,0.45)',
+      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 2 });
+    ds.push({ label: 'Today Temp', data: toHourData(today, 'temperature'), borderColor: '#fb923c',
+      borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y', order: 1 });
+  }
+  if (showHum) {
+    ds.push({ label: 'Yesterday Hum', data: toHourData(yesterday, 'humidity'), borderColor: 'rgba(56,189,248,0.45)',
+      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0.3, yAxisID: showTemp ? 'y1' : 'y', order: 2 });
+    ds.push({ label: 'Today Hum', data: toHourData(today, 'humidity'), borderColor: '#38bdf8',
+      borderWidth: 2.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, yAxisID: showTemp ? 'y1' : 'y', order: 1 });
+  }
+
+  // Update legend
+  const legend = document.getElementById('compLegend');
+  let legendHtml = '';
+  if (showTemp) {
+    legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div>Today Temp</div>';
+    legendHtml += '<div class="legend-item"><div class="legend-line" style="border-color:rgba(251,146,60,0.45);"></div>Yesterday</div>';
+  }
+  if (showHum) {
+    legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div>Today Hum</div>';
+    legendHtml += '<div class="legend-item"><div class="legend-line" style="border-color:rgba(56,189,248,0.45);"></div>Yesterday</div>';
+  }
+  legend.innerHTML = legendHtml;
+
+  // If today has no data yet, show a note
+  const todayTempCount = showTemp ? toHourData(today, 'temperature').length : 0;
+  const todayHumCount = showHum ? toHourData(today, 'humidity').length : 0;
+  if ((showTemp && todayTempCount === 0) && (showHum && todayHumCount === 0)) {
+    legend.innerHTML += '<div class="legend-item" style="color:var(--text-faint);font-style:italic;">No data for today yet</div>';
+  } else if (!showHum && showTemp && todayTempCount === 0) {
+    legend.innerHTML += '<div class="legend-item" style="color:var(--text-faint);font-style:italic;">No temp data for today yet</div>';
+  } else if (!showTemp && showHum && todayHumCount === 0) {
+    legend.innerHTML += '<div class="legend-item" style="color:var(--text-faint);font-style:italic;">No humidity data for today yet</div>';
+  }
+
+  const scales = {
+    x: {
+      type: 'linear', min: 0, max: 24,
+      ticks: {
+        stepSize: 3,
+        callback: v => hourAmPm(v >= 24 ? 0 : v),
+        color: '#7d8590', font: { family: 'Inter', size: 11 },
+      },
+      grid: { color: 'rgba(31,38,48,0.5)' },
+      border: { color: '#1f2630' },
+    },
+    y: {
+      position: 'left', grid: { color: 'rgba(31,38,48,0.5)' },
+      ticks: { color: showTemp ? '#fb923c' : '#38bdf8', font: { family: 'JetBrains Mono', size: 11 } },
+      border: { color: '#1f2630' },
+    },
+  };
+  if (showTemp && showHum) {
+    scales.y1 = {
+      position: 'right', grid: { drawOnChartArea: false },
+      ticks: { color: '#38bdf8', font: { family: 'JetBrains Mono', size: 11 } },
+      border: { color: '#1f2630' },
+    };
+  }
+
+  const ctx = document.getElementById('comparisonChart');
+  if (charts['comparisonChart']) charts['comparisonChart'].destroy();
+  charts['comparisonChart'] = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { intersect: false, mode: 'nearest' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...CHART_TOOLTIP,
+          callbacks: {
+            title: items => {
+              if (!items.length) return '';
+              const h = Math.floor(items[0].parsed.x);
+              const m = String(Math.round((items[0].parsed.x % 1) * 60)).padStart(2, '0');
+              return `${hourAmPm(h)} :${m}`;
+            },
+          },
+        },
+      },
+      scales,
+    },
+  });
+}
+
+function renderPeakHours(rows) {
+  const hours = Array.from({ length: 24 }, () => ({ motion: 0, total: 0 }));
+  for (const r of rows) {
+    const h = new Date(r.created_at).getHours();
+    hours[h].total++;
+    if (r.motion) hours[h].motion++;
+  }
+  const pct = hours.map(h => h.total > 0 ? Math.round((h.motion / h.total) * 100) : 0);
+  const maxPct = Math.max(...pct, 1);
+
+  const ctx = document.getElementById('peakHoursChart');
+  if (charts['peakHoursChart']) charts['peakHoursChart'].destroy();
+  charts['peakHoursChart'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Array.from({ length: 24 }, (_, i) => hourAmPm(i)),
+      datasets: [{
+        data: pct,
+        backgroundColor: pct.map(p => {
+          const ratio = p / maxPct;
+          if (ratio >= 0.7) return 'rgba(45,212,191,0.85)';
+          if (ratio >= 0.3) return 'rgba(45,212,191,0.45)';
+          return 'rgba(45,212,191,0.15)';
+        }),
+        borderRadius: 3,
+        barPercentage: 0.8,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...CHART_TOOLTIP,
+          callbacks: {
+            title: items => items.length ? items[0].label : '',
+            label: item => `${item.raw}% active`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#7d8590', font: { family: 'JetBrains Mono', size: 10 } },
+          border: { color: '#1f2630' },
+        },
+        y: {
+          min: 0, max: 100,
+          ticks: { color: '#7d8590', callback: v => v + '%', font: { family: 'JetBrains Mono', size: 10 } },
+          grid: { color: 'rgba(31,38,48,0.5)' },
+          border: { color: '#1f2630' },
+        },
+      },
+    },
+  });
+}
+
+/* ==================== DOM RENDERERS ==================== */
+function renderLive(latest) {
+  if (!latest) return;
+  latestReading = latest;
+  document.getElementById('liveTemp').textContent = fmt(latest.temperature);
+  document.getElementById('liveHum').textContent  = fmt(latest.humidity);
+  document.getElementById('liveMotion').textContent = latest.motion ? 'Detected' : 'Clear';
+
+  // AQI
+  const aqiScore = calcAirQuality(latest.gas_level);
+  const aqiInfo = getAQIInfo(aqiScore);
+  document.getElementById('aqiScore').textContent = aqiScore != null ? aqiScore : '—';
+  document.getElementById('aqiFill').style.width = aqiScore != null ? aqiScore + '%' : '0%';
+  document.getElementById('aqiFill').style.background = aqiInfo.color;
+  const badge = document.getElementById('aqiBadge');
+  badge.textContent = aqiInfo.label;
+  badge.className = 'badge ' + (aqiInfo.badgeCls || '');
+  badge.style.color = aqiInfo.color;
+  badge.style.borderColor = aqiInfo.color + '4d';
+  badge.style.background = aqiInfo.color + '26';
+  document.getElementById('aqiRaw').textContent = latest.gas_level != null ? `Raw: ${latest.gas_level}` : '';
+
+  // Motion badge
+  const motionMeta = document.getElementById('motionMeta');
+  motionMeta.innerHTML = latest.motion
+    ? '<span class="badge badge-warn">Active</span>'
+    : '<span class="badge badge-ok">No movement</span>';
+
+  if (latest.motion) lastMotionTime = new Date(latest.created_at);
+
+  // Timestamp — show actual DB entry time + relative
+  const ts = new Date(latest.created_at);
+  const hh = String(ts.getHours()).padStart(2, '0');
+  const mm = String(ts.getMinutes()).padStart(2, '0');
+  const ss = String(ts.getSeconds()).padStart(2, '0');
+  const day = ts.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  document.getElementById('lastUpdated').textContent = `Last entry: ${day} ${hh}:${mm}:${ss} (${timeAgo(ts)})`;
+  document.getElementById('lastUpdated').dataset.ts = ts.getTime();
+
+  // Comfort gauge
+  drawComfortGauge(latest.temperature, latest.humidity);
+}
+
+function renderTrends() {
+  const trends = computeTrends(recentRows);
+  const fields = [
+    { key: 'temp', el: 'tempTrend', unit: '°C/hr', threshold: 0.1 },
+    { key: 'hum',  el: 'humTrend',  unit: '%/hr',  threshold: 0.5 },
+  ];
+  for (const f of fields) {
+    const el = document.getElementById(f.el);
+    if (!el) continue;
+    const val = trends[f.key];
+    if (val == null) { el.textContent = '—'; continue; }
+    const abs = Math.abs(val);
+    let arrow, cls;
+    if (abs < f.threshold) { arrow = '→'; cls = 'trend-stable'; }
+    else if (val > 0)      { arrow = '↑'; cls = 'trend-up'; }
+    else                   { arrow = '↓'; cls = 'trend-down'; }
+    el.className = 'trend-indicator ' + cls;
+    el.textContent = `${arrow} ${val > 0 ? '+' : ''}${val.toFixed(1)} ${f.unit}`;
+  }
+}
+
+function drawComfortGauge(temp, humidity) {
+  const comfort = calcComfort(temp, humidity);
+  const hi = calcHeatIndex(temp, humidity);
+  const dp = calcDewPoint(temp, humidity);
+
+  document.getElementById('comfortScoreNum').textContent = comfort.score != null ? comfort.score : '—';
+  document.getElementById('comfortScoreLabel').textContent = comfort.label;
+  document.getElementById('comfortScoreLabel').style.color = comfort.color;
+  document.getElementById('feelsLike').textContent = hi != null ? fmt(hi) + ' °C' : '—';
+  document.getElementById('dewPoint').textContent = dp != null ? fmt(dp) + ' °C' : '—';
+
+  const tzEl = document.getElementById('tempZone');
+  if (temp == null) { tzEl.textContent = '—'; tzEl.style.color = ''; }
+  else if (temp >= 20 && temp <= 26) { tzEl.textContent = 'Ideal'; tzEl.style.color = '#22c55e'; }
+  else if (temp >= 17 && temp <= 29) { tzEl.textContent = 'Okay';  tzEl.style.color = '#fbbf24'; }
+  else if (temp < 17)               { tzEl.textContent = 'Cold';  tzEl.style.color = '#38bdf8'; }
+  else                               { tzEl.textContent = 'Hot';   tzEl.style.color = '#ef4444'; }
+
+  const hzEl = document.getElementById('humZone');
+  if (humidity == null) { hzEl.textContent = '—'; hzEl.style.color = ''; }
+  else if (humidity >= 30 && humidity <= 60) { hzEl.textContent = 'Ideal'; hzEl.style.color = '#22c55e'; }
+  else if (humidity >= 20 && humidity <= 70) { hzEl.textContent = 'Okay';  hzEl.style.color = '#fbbf24'; }
+  else if (humidity < 20)                    { hzEl.textContent = 'Dry';   hzEl.style.color = '#fb923c'; }
+  else                                       { hzEl.textContent = 'Humid'; hzEl.style.color = '#38bdf8'; }
+
+  // Canvas gauge
+  const canvas = document.getElementById('comfortGauge');
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cw = rect.width, ch = rect.height;
+  ctx.clearRect(0, 0, cw, ch);
+  if (comfort.score == null) return;
+
+  const cx = cw / 2, cy = ch * 0.85;
+  const r = Math.min(cw / 2, ch) * 0.82;
+  const startA = Math.PI;
+  const lw = 14;
+
+  // Zone arcs (background)
+  const zones = [
+    { from: 0,   to: 0.2, color: '#ef4444' },
+    { from: 0.2, to: 0.4, color: '#fb923c' },
+    { from: 0.4, to: 0.6, color: '#fbbf24' },
+    { from: 0.6, to: 0.8, color: '#4ade80' },
+    { from: 0.8, to: 1.0, color: '#22c55e' },
+  ];
+  for (const z of zones) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startA + z.from * Math.PI, startA + z.to * Math.PI);
+    ctx.strokeStyle = z.color + '30';
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+  }
+
+  // Active fill
+  const scoreRatio = comfort.score / 100;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startA, startA + scoreRatio * Math.PI);
+  ctx.strokeStyle = comfort.color;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Glow
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startA, startA + scoreRatio * Math.PI);
+  ctx.strokeStyle = comfort.color + '40';
+  ctx.lineWidth = lw + 8;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Needle
+  const needleA = startA + scoreRatio * Math.PI;
+  const nl = r * 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(needleA) * nl, cy + Math.sin(needleA) * nl);
+  ctx.strokeStyle = '#e6edf3';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#e6edf3';
+  ctx.fill();
+
+  // Min/max labels
+  ctx.font = '500 10px JetBrains Mono';
+  ctx.fillStyle = '#4a5260';
+  ctx.textAlign = 'left';
+  ctx.fillText('0', cx - r - 4, cy + 16);
+  ctx.textAlign = 'right';
+  ctx.fillText('100', cx + r + 4, cy + 16);
+}
+
+function renderOccupancyHeatmap(rows) {
+  const container = document.getElementById('heatmapGrid');
+  if (!rows.length) {
+    container.innerHTML = '<span style="color:var(--text-faint)">No motion data available</span>';
+    return;
+  }
+
+  const now = new Date();
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    days.push(d);
+  }
+  const dayLabels = days.map(d => d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }));
+
+  const grid = {};
+  for (const r of rows) {
+    const d = new Date(r.created_at);
+    const dayIdx = days.findIndex(day =>
+      d.getFullYear() === day.getFullYear() &&
+      d.getMonth() === day.getMonth() &&
+      d.getDate() === day.getDate()
+    );
+    if (dayIdx === -1) continue;
+    const h = d.getHours();
+    const key = `${dayIdx}-${h}`;
+    if (!grid[key]) grid[key] = { motion: 0, total: 0 };
+    grid[key].total++;
+    if (r.motion) grid[key].motion++;
+  }
+
+  let html = `<div class="heatmap-grid" style="grid-template-columns: auto repeat(24, 24px);">`;
+
+  // Header row
+  html += `<div></div>`;
+  for (let h = 0; h < 24; h++) {
+    const show = h % 6 === 0;
+    html += `<div class="heatmap-header-cell">${show ? hourAmPm(h) : ''}</div>`;
+  }
+
+  // Data rows
+  for (let di = 0; di < 7; di++) {
+    html += `<div class="heatmap-day-label">${dayLabels[di]}</div>`;
+    for (let h = 0; h < 24; h++) {
+      const key = `${di}-${h}`;
+      const cell = grid[key];
+      let bg, tip;
+      if (!cell || cell.total === 0) {
+        bg = 'rgba(31,38,48,0.5)';
+        tip = `${dayLabels[di]} ${hourAmPm(h)} — no data`;
+      } else {
+        const ratio = cell.motion / cell.total;
+        const opacity = ratio * 0.85 + 0.05;
+        bg = `rgba(45,212,191,${opacity.toFixed(2)})`;
+        tip = `${dayLabels[di]} ${hourAmPm(h)} — ${Math.round(ratio * 100)}% active`;
+      }
+      html += `<div class="heatmap-cell" style="background:${bg}" data-tooltip="${tip}"></div>`;
+    }
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function updateMotionTimer() {
+  const el = document.getElementById('timeSinceMotion');
+  if (!el) return;
+  if (!lastMotionTime) { el.textContent = 'No motion data'; return; }
+  const diff = Date.now() - lastMotionTime.getTime();
+  if (diff < MOTION_OCCUPIED_MS) {
+    el.innerHTML = '<span style="color:var(--teal)">Currently occupied</span>';
+  } else {
+    el.textContent = 'Empty for ' + durationStr(diff);
+  }
+}
+
+function renderStats(rows) {
+  const fields = [
+    { key: 'temperature', prefix: 'temp', unit: '°C', dec: 1 },
+    { key: 'humidity',    prefix: 'hum',  unit: '%',  dec: 1 },
+    { key: 'gas_level',   prefix: 'gas',  unit: '',   dec: 0 },
+  ];
+  for (const f of fields) {
+    const vals = rows.map(r => r[f.key]).filter(v => v != null);
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      el.textContent = v == null ? '—' : (fmt(v, f.dec) + (f.unit ? ' ' + f.unit : ''));
+    };
+    if (!vals.length) { set(f.prefix+'Min', null); set(f.prefix+'Avg', null); set(f.prefix+'Max', null); continue; }
+    set(f.prefix+'Min', Math.min(...vals));
+    set(f.prefix+'Max', Math.max(...vals));
+    set(f.prefix+'Avg', vals.reduce((a,b)=>a+b,0)/vals.length);
+  }
+}
+
+function renderSummary(weekData, monthData) {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 86400000);
+  const monthAgo = new Date(now.getTime() - 30 * 86400000);
+
+  function tempSummary(rows, elAvg, elRange) {
+    const temps = rows.map(r => r.temperature).filter(v => v != null);
+    if (!temps.length) {
+      document.getElementById(elAvg).textContent = '—';
+      document.getElementById(elRange).textContent = 'No data';
+      return;
+    }
+    const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+    const min = Math.min(...temps);
+    const max = Math.max(...temps);
+    document.getElementById(elAvg).textContent = fmt(avg) + ' °C';
+    document.getElementById(elRange).textContent = `Range: ${fmt(min)} – ${fmt(max)} °C`;
+  }
+
+  function occupancySummary(rows, elVal, elSub, label) {
+    if (!rows.length) {
+      document.getElementById(elVal).textContent = '—';
+      document.getElementById(elSub).textContent = 'No data';
+      return;
+    }
+    const total = rows.length;
+    const motionCount = rows.filter(r => r.motion).length;
+    const pct = Math.round((motionCount / total) * 100);
+
+    // Estimate occupied hours: group by hour slots, count slots with any motion
+    const hourSlots = new Set();
+    const totalSlots = new Set();
+    for (const r of rows) {
+      const d = new Date(r.created_at);
+      const slotKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+      totalSlots.add(slotKey);
+      if (r.motion) hourSlots.add(slotKey);
+    }
+    const occupiedHrs = hourSlots.size;
+    const totalHrs = totalSlots.size;
+
+    document.getElementById(elVal).textContent = pct + '%';
+    document.getElementById(elSub).textContent = `${occupiedHrs} of ${totalHrs} hrs had activity`;
+  }
+
+  // Weekly
+  const weekRows = weekData.filter(r => new Date(r.created_at) >= weekAgo);
+  tempSummary(weekRows, 'weekAvgTemp', 'weekTempRange');
+  occupancySummary(weekRows, 'weekOccupancy', 'weekOccupancySub', '7 days');
+
+  // Monthly
+  tempSummary(monthData, 'monthAvgTemp', 'monthTempRange');
+  occupancySummary(monthData, 'monthOccupancy', 'monthOccupancySub', '30 days');
+}
+
+/* ==================== DATA LOADING ==================== */
+async function loadRange() {
+  const cfg = RANGES[currentRange];
+  document.getElementById('rangeMeta').textContent = `Showing ${cfg.label}`;
+
+  let data;
+  try {
+    const resp = await apiGet('/range', { range: currentRange });
+    data = resp.data;
+  } catch (err) {
+    showOverlay('Query failed', err.message || 'Unable to load range data', true);
+    return;
+  }
+
+  if (!data || !data.length) {
+    showOverlay('No data', `No readings in the ${cfg.label}. Make sure your NodeMCU is pushing data.`, true);
+    return;
+  }
+
+  const bucketed = bucketize(data, cfg.bucketMin);
+  renderClimate(bucketed);
+  renderGas(bucketed);
+  renderMotion(bucketed);
+  renderStats(data);
+  renderLive(data[data.length - 1]);
+  findLastMotion(data);
+
+  // Update comparison chart with fresh data if it's already been initialized
+  if (comparisonAllRows) {
+    const mergedMap = new Map();
+    for (const r of comparisonAllRows) mergedMap.set(r.created_at, r);
+    for (const r of data) mergedMap.set(r.created_at, r);
+    const merged = [...mergedMap.values()].sort((a, b) =>
+      new Date(a.created_at) - new Date(b.created_at)
+    );
+    renderDailyComparison(merged);
+  }
+
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  recentRows = data.filter(r => new Date(r.created_at).getTime() > cutoff);
+  renderTrends();
+
+  hideOverlay();
+}
+
+async function fetchLatest() {
+  try {
+    const resp = await apiGet('/latest');
+    if (resp.data) renderLive(resp.data);
+  } catch (_) {
+    // Keep dashboard running even if one polling cycle fails.
+  }
+}
+
+async function loadInsights() {
+  let insightData = [];
+  let monthData = [];
+  let rangeData = [];
+  try {
+    // Fetch 7d insights, 30d insights (for summaries), and 24h range data in parallel.
+    const [insightsResp, monthResp, rangeResp] = await Promise.all([
+      apiGet('/insights', { days: 7 }),
+      apiGet('/insights', { days: 30 }),
+      apiGet('/range', { range: '24h' }),
+    ]);
+    insightData = insightsResp.data || [];
+    monthData = monthResp.data || [];
+    rangeData = rangeResp.data || [];
+  } catch (_) {}
+
+  if (insightData.length) {
+    renderOccupancyHeatmap(insightData);
+    renderPeakHours(insightData);
+  } else {
+    document.getElementById('heatmapGrid').innerHTML = '<span style="color:var(--text-faint)">No data for heatmap</span>';
+  }
+
+  // Summary cards: weekly (from 7d data) + monthly (from 30d data)
+  renderSummary(insightData, monthData);
+
+  // Merge insights + range data for comparison chart (dedup by created_at)
+  const mergedMap = new Map();
+  for (const r of insightData) mergedMap.set(r.created_at, r);
+  for (const r of rangeData) mergedMap.set(r.created_at, r);
+  const merged = [...mergedMap.values()].sort((a, b) =>
+    new Date(a.created_at) - new Date(b.created_at)
+  );
+  if (merged.length) renderDailyComparison(merged);
+}
+
+/* ==================== SETUP ==================== */
+function setupRealtime() {
+  const conn = document.getElementById('conn');
+  const connText = document.getElementById('connText');
+  conn.classList.add('live');
+  connText.textContent = 'polling';
+}
+
+function setupRangeTabs() {
+  document.querySelectorAll('#rangeTabs .range-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#rangeTabs .range-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentRange = btn.dataset.range;
+      loadRange();
+    });
+  });
+  document.querySelectorAll('#compTabs .range-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#compTabs .range-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderDailyComparison(null, btn.dataset.comp);
+    });
+  });
+}
+
+function startMotionTicker() {
+  if (motionTickerInterval) clearInterval(motionTickerInterval);
+  updateMotionTimer();
+  motionTickerInterval = setInterval(() => {
+    updateMotionTimer();
+    updateLastEntryAge();
+  }, 1000);
+}
+
+function updateLastEntryAge() {
+  const el = document.getElementById('lastUpdated');
+  if (!el || !el.dataset.ts) return;
+  const ts = new Date(Number(el.dataset.ts));
+  const hh = String(ts.getHours()).padStart(2, '0');
+  const mm = String(ts.getMinutes()).padStart(2, '0');
+  const ss = String(ts.getSeconds()).padStart(2, '0');
+  const day = ts.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  const ageSec = Math.floor((Date.now() - ts.getTime()) / 1000);
+  const ago = timeAgo(ts);
+  el.textContent = `Last entry: ${day} ${hh}:${mm}:${ss} (${ago})`;
+  el.style.color = ageSec > 300 ? '#ef4444' : '';
+}
+
+function step(msg) {
+  document.getElementById('overlayMsg').textContent = msg;
+  console.log('[room-monitor]', msg);
+}
+
+/* ==================== INIT ==================== */
+async function init() {
+  step('Checking config…');
+  if (!/^https:\/\/.+\.workers\.dev\/?$/i.test(API_BASE)) {
+    showOverlay('Bad API_BASE',
+      'Set API_BASE to your deployed Cloudflare Worker URL.', true);
+    return;
+  }
+
+  try {
+    step('Connecting to backend…');
+    setupRangeTabs();
+    step('Loading data…');
+    await loadRange();
+    if (document.getElementById('overlay').style.display !== 'none') return;
+    loadInsights();
+    startMotionTicker();
+    setupRealtime();
+    setInterval(fetchLatest, 30000);
+    setInterval(() => {
+      if (currentRange === '1h' || currentRange === '6h') loadRange();
+    }, 45000);
+
+    window.addEventListener('resize', () => {
+      if (latestReading) drawComfortGauge(latestReading.temperature, latestReading.humidity);
+    });
+
+  } catch (e) {
+    console.error(e);
+    showOverlay('Init crashed', (e && e.message) ? e.message : String(e), true);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

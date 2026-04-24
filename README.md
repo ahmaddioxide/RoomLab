@@ -1,30 +1,32 @@
 # AirPulse Home Lab
-Real-time room monitoring dashboard with ESP8266 sensors, Supabase storage, and Cloudflare Worker-secured API.
+Multi-room environment monitoring with ESP8266 + ESP32 sensors, Supabase storage, and Cloudflare Worker-secured API.
 
 [![Live Dashboard](https://img.shields.io/badge/Live-Dashboard-0ea5e9?style=for-the-badge)](https://<username>.github.io/<repo>/)
 [![Cloudflare Worker](https://img.shields.io/badge/API-Cloudflare%20Worker-f97316?style=for-the-badge)](https://home-lab-api.ahmadmahmood296.workers.dev/health)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](./LICENSE)
 
 Real-time room environment monitoring system with:
-- ESP8266 sensor node (`home_lab.ino`)
+- ESP8266 sensor node — Room 1 (`home_lab.ino`)
+- ESP32 sensor node — Room 2 (`home_lab_room_2.ino`)
 - Supabase data storage
 - Static web dashboard (`index.html`)
 - Cloudflare Worker API proxy (`worker/`) to keep secrets off the frontend
 
-The dashboard is designed for static hosting (for example, GitHub Pages), while sensitive credentials stay in Cloudflare Worker secrets.
+Both devices serve a local web dashboard on port 80 for direct LAN access. The public dashboard is designed for static hosting (for example, GitHub Pages), while sensitive credentials stay in Cloudflare Worker secrets and gitignored secrets files.
 
 ## Why this project
 
 This project turns low-cost sensors into a full monitoring stack:
-- edge device collection (ESP8266)
+- edge device collection (ESP8266 + ESP32, two rooms)
 - cloud-backed historical storage (Supabase)
 - secure public dashboard (GitHub Pages + Worker API proxy)
+- local LAN dashboards served directly from each device
 
 It is built to be understandable, deployable, and safe to share publicly.
 
 ## Quick Start
 
-1. Configure firmware secrets and flash the ESP8266.
+1. Configure firmware secrets and flash both devices.
 2. Deploy the Worker backend and set Worker secrets.
 3. Set `API_BASE` in `index.html`.
 4. Deploy frontend to GitHub Pages.
@@ -34,25 +36,44 @@ It is built to be understandable, deployable, and safe to share publicly.
 
 ```text
 home_lab/
-├── index.html            # Static dashboard UI (charts, analytics, trends)
-├── home_lab.ino          # ESP8266 firmware (DHT11 + MQ2 + PIR + buzzer)
+├── index.html                # Static dashboard UI (charts, analytics, trends)
+├── home_lab.ino              # ESP8266 firmware (Room 1: DHT11, MQ2, buzzer)
+├── home_lab_room_2.ino       # ESP32 firmware (Room 2: DHT22, BMP280, MQ135, LDR, PIR, LCD, buzzer)
+├── secrets.example.h         # Template for ESP8266 secrets
+├── secrets_room2.example.h   # Template for ESP32 secrets
 ├── worker/
-│   ├── src/index.js      # Cloudflare Worker backend API
-│   ├── wrangler.toml     # Worker config
-│   └── README.md         # Worker-specific quick guide
-└── README.md             # This file
+│   ├── src/index.js          # Cloudflare Worker backend API
+│   ├── wrangler.toml         # Worker config
+│   └── README.md             # Worker-specific quick guide
+└── README.md                 # This file
 ```
 
 ## Architecture
 
+### Room 1 — ESP8266 (NodeMCU)
 1. ESP8266 reads sensors:
    - Temperature/Humidity: DHT11
    - Gas level: MQ2 (analog)
-   - Motion: PIR
+   - ~~Motion: PIR~~ (disabled — sensor damaged)
 2. ESP8266 sends readings to Supabase table (`room_monitor`).
-3. Cloudflare Worker reads from Supabase using secret server-side credentials.
-4. `index.html` calls Worker API endpoints (`/latest`, `/range`, `/insights`).
-5. Dashboard renders charts, live cards, trends, occupancy analysis, and stats.
+3. Serves a local web dashboard on port 80.
+
+### Room 2 — ESP32 (WROOM-32)
+1. ESP32 reads sensors:
+   - Temperature/Humidity: DHT22
+   - Pressure: BMP280 (I2C)
+   - Air quality: MQ135 (analog)
+   - Light: LDR (analog)
+   - Motion: PIR
+2. ESP32 sends readings to Supabase tables (`esp32_monitor`, `presence_events`).
+3. Phone presence detection via TCP probing on the local network.
+4. 16x2 LCD with rotating sensor slides.
+5. Serves a local web dashboard on port 80.
+
+### Cloud
+1. Cloudflare Worker reads from Supabase using secret server-side credentials.
+2. `index.html` calls Worker API endpoints (`/latest`, `/range`, `/insights`).
+3. Dashboard renders charts, live cards, trends, occupancy analysis, and stats.
 
 ## Features
 
@@ -71,13 +92,13 @@ home_lab/
 
 - GitHub account (for GitHub Pages deployment)
 - Cloudflare account (for Worker deployment)
-- Supabase project with a `room_monitor` table
+- Supabase project with `room_monitor` and `esp32_monitor` tables
 - Node.js + npm (for Wrangler CLI)
-- Arduino IDE (for ESP8266 firmware flashing)
+- Arduino IDE (for firmware flashing)
 
-## Supabase Table
+## Supabase Tables
 
-Expected columns in `room_monitor`:
+Expected columns in `room_monitor` (Room 1):
 
 - `id` (primary key)
 - `temperature` (numeric)
@@ -85,6 +106,29 @@ Expected columns in `room_monitor`:
 - `gas_level` (numeric)
 - `gas_alert` (boolean)
 - `motion` (boolean)
+- `created_at` (timestamp with timezone, default now())
+
+Expected columns in `esp32_monitor` (Room 2):
+
+- `id` (primary key)
+- `temperature` (numeric)
+- `humidity` (numeric)
+- `pressure` (numeric)
+- `air_quality` (numeric)
+- `air_label` (text)
+- `light_value` (numeric)
+- `light_label` (text)
+- `motion` (boolean)
+- `is_home` (boolean)
+- `gas_alert` (boolean)
+- `heat_alert` (boolean)
+- `created_at` (timestamp with timezone, default now())
+
+Expected columns in `presence_events` (Room 2):
+
+- `id` (primary key)
+- `event_type` (text)
+- `person` (text)
 - `created_at` (timestamp with timezone, default now())
 
 ## Backend Setup (Cloudflare Worker)
@@ -176,14 +220,17 @@ wrangler dev
 
 Note: local dev may require local secret config if account-level secrets are not loaded automatically.
 
-## Firmware Notes (`home_lab.ino`)
+## Firmware Notes
 
-- Sensor read loop continuously tracks temperature/humidity/gas/motion.
-- Motion and periodic intervals trigger Supabase upload.
+### Room 1 (`home_lab.ino`) — ESP8266
+
+- Sensor read loop continuously tracks temperature/humidity/gas.
+- PIR motion sensor is disabled (hardware damaged); always reports `false`.
+- Periodic intervals trigger Supabase upload.
 - Buzzer provides audible alerts and status tones.
 - Built-in web server serves a lightweight local status UI.
 
-### Firmware Secret Setup
+#### Secret Setup
 
 1. Copy the template:
 
@@ -199,7 +246,33 @@ cp secrets.example.h secrets.h
 
 3. Compile/upload `home_lab.ino`.
 
-`home_lab.ino` now imports `secrets.h` and fails fast at compile time if required keys are missing.
+### Room 2 (`home_lab_room_2.ino`) — ESP32
+
+- Reads DHT22, BMP280, MQ135, LDR, and PIR sensors every 2 seconds.
+- Logs data to Supabase (`esp32_monitor`) every 10 seconds.
+- Detects phone presence via TCP probing every 5 minutes.
+- Logs arrival/departure events to `presence_events` table.
+- 16x2 LCD with 4 rotating slides; auto-off after 1 minute of no motion.
+- Built-in web server serves a local dashboard with all sensor cards.
+
+#### Secret Setup
+
+1. Copy the template:
+
+```bash
+cp secrets_room2.example.h secrets_room2.h
+```
+
+2. Edit `secrets_room2.h` and set:
+   - `WIFI_SSID`
+   - `WIFI_PASSWORD`
+   - `SUPABASE_URL` (base URL, no `/rest/v1/` suffix)
+   - `SUPABASE_KEY`
+   - `PHONE_IP` (local IP of phone for presence detection)
+
+3. Compile/upload `home_lab_room_2.ino`.
+
+Both firmwares import their secrets file and fail fast at compile time if required keys are missing.
 
 ## Security Notes
 
@@ -212,8 +285,8 @@ cp secrets.example.h secrets.h
 
 Before sharing or making repository public:
 
-- Keep real credentials only in `secrets.h` (ignored by git).
-- Commit only `secrets.example.h` with placeholder values.
+- Keep real credentials only in `secrets.h` and `secrets_room2.h` (both ignored by git).
+- Commit only `secrets.example.h` and `secrets_room2.example.h` with placeholder values.
 
 ## Troubleshooting
 
@@ -224,7 +297,7 @@ Before sharing or making repository public:
   Re-run `wrangler secret put ...` commands.
 
 - **No data on dashboard**  
-  Confirm ESP8266 is sending to Supabase and rows exist in `room_monitor`.
+  Confirm devices are sending to Supabase and rows exist in the relevant tables.
 
 - **CORS errors in browser**  
   Verify Worker response includes CORS headers and origin rules allow your domain.
@@ -234,6 +307,7 @@ Before sharing or making repository public:
 
 ## Next Improvements
 
+- Integrate Room 2 data into Worker API and web dashboard
 - Add authentication for dashboard/API access
 - Add alerting (email/telegram) on gas threshold or motion events
 - Add data retention policies and rollups in Supabase
