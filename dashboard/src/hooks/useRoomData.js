@@ -23,7 +23,6 @@ export function useRoomData(room, range) {
       const data = resp.data || [];
       setRangeData(data);
       setBucketed(bucketize(data, rcfg.bucketMin, cfg.gasField));
-      if (data.length) setLatest(data[data.length - 1]);
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -65,9 +64,9 @@ export function useRoomData(room, range) {
   // Initial load
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadRange(), loadInsights(), loadPresence()])
+    Promise.all([loadRange(), loadInsights(), loadPresence(), fetchLatest()])
       .finally(() => setLoading(false));
-  }, [loadRange, loadInsights, loadPresence]);
+  }, [loadRange, loadInsights, loadPresence, fetchLatest]);
 
   // Reload range when range changes
   useEffect(() => { loadRange(); }, [loadRange]);
