@@ -667,3 +667,160 @@ body {
     @apply font-sans;
   }
 }
+
+/* =========================================================
+   NEW COMPONENT STYLES (OccupancyInsights, DailyStatsTable,
+   WeatherPrediction, CombinedStats, date picker input)
+   ========================================================= */
+
+/* ---- Date picker inputs (DayComparisonChart) ---- */
+.day-picker-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.day-picker-group { display: flex; align-items: center; gap: 6px; }
+.day-picker-lbl { font-size: 11px; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.day-picker-input {
+  background: oklch(0.18 0.012 55); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 3px 8px; font-size: 12px;
+  font-family: var(--font-sans); cursor: pointer; height: 30px; color-scheme: dark;
+}
+.day-picker-input:focus { outline: 1px solid var(--r1); }
+.day-picker-vs { font-size: 11px; color: var(--text-faint); font-style: italic; }
+.day-picker-loading { font-size: 11px; color: var(--text-faint); animation: pulse 1s infinite; }
+.day-comparison-empty { text-align: center; color: var(--text-faint); font-size: 13px; padding: 32px 0; }
+
+/* ---- Summary Grid 2-col (Room 1 without occupancy) ---- */
+.summary-grid-2col { grid-template-columns: 1fr 1fr !important; }
+
+/* ---- OccupancyInsights ---- */
+.occupancy-insights {
+  background: oklch(0.16 0.012 55 / 0.6); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px;
+}
+.occ-header { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.occ-section-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 10px 0 6px; padding: 0 2px;
+}
+.occ-warn {
+  display: flex; align-items: center; gap: 6px;
+  background: oklch(0.25 0.05 50 / 0.4); border: 1px solid oklch(0.55 0.12 50 / 0.4);
+  border-radius: 6px; padding: 6px 10px; font-size: 11px; color: oklch(0.80 0.10 50);
+  margin-bottom: 10px;
+}
+.occ-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.occ-card {
+  background: oklch(0.19 0.012 55); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 8px;
+}
+.occ-icon { font-size: 18px; line-height: 1; margin-top: 1px; }
+.occ-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.occ-label { font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.occ-value { font-size: 15px; font-weight: 700; color: var(--text); }
+.occ-sub { font-size: 10px; color: var(--text-dim); }
+
+/* ---- DailyStatsTable ---- */
+.dst-wrap {
+  background: oklch(0.16 0.012 55 / 0.6); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; padding: 0;
+}
+.dst-header { font-size: 13px; font-weight: 700; color: var(--text); padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 8px; }
+.dst-sub { font-size: 11px; color: var(--text-faint); }
+.dst-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.dst-presets { display: flex; gap: 4px; flex-wrap: wrap; }
+.dst-preset-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 5px; padding: 3px 9px; font-size: 11px; font-family: inherit;
+  cursor: pointer; transition: all 0.15s;
+}
+.dst-preset-btn:hover { background: oklch(0.22 0.012 55); color: var(--text); }
+.dst-preset-btn.active { background: oklch(0.22 0.015 55); border-color: var(--r2); color: var(--r2); }
+.dst-date-range { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.dst-foot { padding: 8px 12px; font-size: 11px; color: var(--text-faint); border-top: 1px solid oklch(0.22 0.008 55 / 0.4); }
+.dst-table-wrap { overflow-x: auto; }
+.dst-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dst-table th {
+  background: oklch(0.19 0.012 55); color: var(--text-faint);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.dst-table td {
+  padding: 8px 12px; color: var(--text); border-bottom: 1px solid oklch(0.22 0.008 55 / 0.4); white-space: nowrap;
+}
+.dst-table tr:last-child td { border-bottom: none; }
+.dst-table tr:hover td { background: oklch(0.20 0.012 55 / 0.5); }
+.dst-date { color: var(--text-dim); font-size: 11px; }
+.dst-na { color: var(--text-faint); font-style: italic; }
+.dst-range-bar-bg {
+  background: oklch(0.22 0.012 55); height: 4px; border-radius: 2px; width: 60px;
+  overflow: hidden; display: inline-block; vertical-align: middle;
+}
+.dst-range-bar-fill { height: 100%; border-radius: 2px; background: var(--r2); }
+
+/* ---- CombinedDailyTable ---- */
+.cdt-table { width: 100%; }
+.cdt-group-header {
+  text-align: center; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-dim); padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+.cdt-group-header.cdt-r1 { color: oklch(0.72 0.12 70); }
+.cdt-group-header.cdt-r2occ { color: oklch(0.68 0.10 155); }
+.cdt-sub-r1 { color: oklch(0.72 0.12 70 / 0.85); }
+.cdt-sub-r2 { color: oklch(0.68 0.10 155 / 0.85); }
+.cdt-minmax { font-size: 10px; color: var(--text-faint); }
+.cdt-delta-up   { font-size: 11px; color: oklch(0.68 0.14 35); font-weight: 600; }
+.cdt-delta-down { font-size: 11px; color: oklch(0.62 0.10 220); font-weight: 600; }
+.cdt-delta-same { font-size: 11px; color: var(--text-faint); }
+
+/* ---- WeatherPrediction ---- */
+.weather-prediction {
+  background: oklch(0.16 0.012 55 / 0.6); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px;
+}
+.weather-prediction .section-title { margin-bottom: 4px; }
+.wp-note { font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
+.wp-rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .wp-rooms { grid-template-columns: 1fr; } }
+.wp-room-label { font-size: 11px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.wp-trends-row { display: flex; flex-direction: column; gap: 6px; }
+.wp-trend-card {
+  background: oklch(0.19 0.012 55); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 8px;
+}
+.wp-trend-icon { font-size: 16px; }
+.wp-trend-body { flex: 1; min-width: 0; }
+.wp-trend-label { font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.wp-trend-status { font-size: 12px; font-weight: 700; color: var(--text); }
+.wp-trend-projection { font-size: 10px; color: var(--text-dim); }
+.wp-comfort-forecast {
+  margin-top: 12px; font-size: 12px; color: var(--text-dim);
+  background: oklch(0.20 0.012 55); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px;
+}
+
+/* ---- CombinedStats ---- */
+.combined-stats {
+  background: oklch(0.16 0.012 55 / 0.6); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px;
+}
+.combined-stats .section-title { margin-bottom: 12px; }
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.cs-item {
+  background: oklch(0.19 0.012 55); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 8px;
+}
+.cs-icon { font-size: 18px; line-height: 1; margin-top: 1px; }
+.cs-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-label { font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.cs-value { font-size: 14px; font-weight: 700; color: var(--text); }
+.cs-unit { font-size: 11px; color: var(--text-dim); }
+.cs-sub { font-size: 10px; color: var(--text-dim); }
+
+/* ---- Delta badges (CombinedView compare cards) ---- */
+.delta-same { font-size: 11px; color: var(--text-faint); }
+.delta-warmer { font-size: 11px; color: oklch(0.72 0.12 50); }
+.delta-cooler { font-size: 11px; color: oklch(0.70 0.10 220); }

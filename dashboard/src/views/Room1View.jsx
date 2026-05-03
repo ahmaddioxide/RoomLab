@@ -1,16 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useRoomData } from '../hooks/useRoomData';
 import { RANGES, ROOM_CONFIG } from '../config';
-import { fmt, calcAirQuality, getAQIInfo, computeTrends, hourAmPm } from '../utils';
+import { fmt, calcAirQuality, getAQIInfo, computeTrends } from '../utils';
 import LiveCard, { TrendBadge, AqiDisplay } from '../components/LiveCard';
 import ComfortSection from '../components/ComfortSection';
 import RangeTabs from '../components/RangeTabs';
-import { ChartCard, BarChartCard } from '../components/ChartCard';
 import SensorAreaChart from '../components/SensorAreaChart';
 import DayComparisonChart from '../components/DayComparisonChart';
-import Heatmap from '../components/Heatmap';
 import StatsGrid, { calcStats } from '../components/StatsGrid';
 import SummaryGrid from '../components/SummaryGrid';
+import DailyStatsTable from '../components/DailyStatsTable';
 import DeviceStatus from '../components/DeviceStatus';
 import Overlay from '../components/Overlay';
 
@@ -28,11 +27,17 @@ export default function Room1View() {
   }, [rangeData]);
   const trends = useMemo(() => computeTrends(recentRows, cfg.gasField), [recentRows, cfg.gasField]);
 
-  // Chart data for recharts
-  const climateData = useMemo(() =>
-    bucketed.filter(r => r.temperature != null || r.humidity != null).map(r => ({
+  // Separate chart data for temperature and humidity
+  const tempData = useMemo(() =>
+    bucketed.filter(r => r.temperature != null).map(r => ({
       time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
       temperature: r.temperature,
+    })),
+  [bucketed]);
+
+  const humData = useMemo(() =>
+    bucketed.filter(r => r.humidity != null).map(r => ({
+      time: new Date(r.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }),
       humidity: r.humidity,
     })),
   [bucketed]);
@@ -43,13 +48,6 @@ export default function Room1View() {
       gas: r[cfg.gasField],
     })),
   [bucketed, cfg.gasField]);
-
-  // Peak hours
-  const peakData = useMemo(() => {
-    const hours = Array.from({ length: 24 }, () => ({ motion: 0, total: 0 }));
-    for (const r of insights7d) { const h = new Date(r.created_at).getHours(); hours[h].total++; if (r.motion) hours[h].motion++; }
-    return hours.map(h => h.total > 0 ? Math.round((h.motion / h.total) * 100) : 0);
-  }, [insights7d]);
 
   // Stats
   const statsFields = useMemo(() => [
@@ -91,15 +89,22 @@ export default function Room1View() {
 
       <div className="charts">
         <SensorAreaChart
-          title="Temperature & Humidity"
+          title="Temperature"
           description={`Showing ${RANGES[range].label}`}
-          data={climateData}
+          data={tempData}
           series={[
             { key: 'temperature', label: 'Temperature °C', color: 'oklch(0.75 0.14 55)' },
+          ]}
+        />
+        <SensorAreaChart
+          title="Humidity"
+          description={`Showing ${RANGES[range].label}`}
+          data={humData}
+          series={[
             { key: 'humidity', label: 'Humidity %', color: 'oklch(0.70 0.10 220)' },
           ]}
         />
-        <DayComparisonChart rows={[...insights7d, ...rangeData]} room="room1" />
+        <DayComparisonChart rows={insights30d} room="room1" table="room_monitor" />
         <SensorAreaChart
           title="Gas Level"
           description="MQ2 gas sensor"
@@ -110,20 +115,12 @@ export default function Room1View() {
         />
       </div>
 
-      <div className="section-title">Insights</div>
-      <div className="insights-grid">
-        <ChartCard title="Room Occupancy — Last 7 Days">
-          <Heatmap rows={insights7d} accentRgb={cfg.accent} />
-        </ChartCard>
-        <ChartCard title="Peak Activity Hours">
-          <BarChartCard labels={Array.from({ length: 24 }, (_, i) => hourAmPm(i))} data={peakData} accentRgb={cfg.accent} />
-        </ChartCard>
-      </div>
-
       <div className="section-title">Summary</div>
-      <SummaryGrid weekData={insights7d} monthData={insights30d} />
+      <SummaryGrid weekData={insights7d} monthData={insights30d} showOccupancy={false} />
 
       <StatsGrid fields={statsFields} />
+
+      <DailyStatsTable table="room_monitor" showOccupancy={false} />
     </div>
   );
 }

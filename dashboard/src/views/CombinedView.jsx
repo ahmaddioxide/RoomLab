@@ -7,10 +7,13 @@ import SensorAreaChart from '../components/SensorAreaChart';
 import CombinedBarChart from '../components/CombinedBarChart';
 import DeviceStatus from '../components/DeviceStatus';
 import Overlay from '../components/Overlay';
+import WeatherPrediction from '../components/WeatherPrediction';
+import CombinedStats from '../components/CombinedStats';
+import CombinedDailyTable from '../components/CombinedDailyTable';
 
 export default function CombinedView() {
   const [range, setRange] = useState('6h');
-  const { room1, room2, r1Range, r2Range, loading } = useCombinedData(range);
+  const { room1, room2, r1Range, r2Range, r1Insights7d, r2Insights7d, loading } = useCombinedData(range);
 
   const r1aqi = room1 ? calcAirQuality(room1.gas_level) : null;
   const r2aqi = room2 ? calcAirQuality(room2.air_quality) : null;
@@ -163,6 +166,12 @@ export default function CombinedView() {
           ]}
         />
       </div>
+
+      <WeatherPrediction r1Range={r1Range} r2Range={r2Range} room1={room1} room2={room2} />
+
+      <CombinedStats room1={room1} room2={room2} r1Range={r1Range} r2Range={r2Range} r1Insights7d={r1Insights7d} r2Insights7d={r2Insights7d} />
+
+      <CombinedDailyTable />
     </div>
   );
 }

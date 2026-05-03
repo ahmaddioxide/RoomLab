@@ -198,6 +198,10 @@ export default function DayComparisonChart({ rows, room }) {
               tick={{ fill: 'var(--text-dim)', fontSize: 11 }}
               width={45}
               tickFormatter={v => param.unit ? `${v}${param.unit}` : v}
+              domain={[
+                (dataMin) => Math.floor(dataMin - 1),
+                (dataMax) => Math.ceil(dataMax + 1),
+              ]}
             />
             <ChartTooltip
               content={

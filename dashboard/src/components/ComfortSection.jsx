@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { calcComfort, calcHeatIndex, calcDewPoint, fmt } from '../utils';
+import { calcComfort, calcHeatIndex, fmt } from '../utils';
 
 function drawGauge(canvas, score, color) {
   const wrap = canvas.parentElement;
@@ -44,7 +44,6 @@ export default function ComfortSection({ temperature, humidity }) {
   const canvasRef = useRef(null);
   const comfort = calcComfort(temperature, humidity);
   const hi = calcHeatIndex(temperature, humidity);
-  const dp = calcDewPoint(temperature, humidity);
 
   useEffect(() => {
     if (canvasRef.current) drawGauge(canvasRef.current, comfort.score, comfort.color);
@@ -84,8 +83,21 @@ export default function ComfortSection({ temperature, humidity }) {
         </div>
       </div>
       <div className="comfort-details-card">
-        <div className="comfort-detail"><div className="comfort-detail-label">Feels Like</div><div className="comfort-detail-value">{hi != null ? fmt(hi) + ' °C' : '—'}</div><div className="comfort-detail-hint">Heat index adjusted</div></div>
-        <div className="comfort-detail"><div className="comfort-detail-label">Dew Point</div><div className="comfort-detail-value">{dp != null ? fmt(dp) + ' °C' : '—'}</div><div className="comfort-detail-hint">Condensation risk</div></div>
+        <div className="comfort-detail">
+          <div className="comfort-detail-label">Heat Index</div>
+          <div className="comfort-detail-value">{hi != null ? fmt(hi) + ' °C' : '—'}</div>
+          <div className="comfort-detail-hint">
+            {hi != null && temperature != null
+              ? (() => {
+                  const diff = hi - temperature;
+                  if (Math.abs(diff) < 0.3) return 'Matches actual temp';
+                  return diff > 0
+                    ? <span style={{ color: 'oklch(0.72 0.12 50)' }}>+{fmt(diff)} °C warmer than actual</span>
+                    : <span style={{ color: 'oklch(0.65 0.10 225)' }}>{fmt(diff)} °C cooler than actual</span>;
+                })()
+              : 'How it feels'}
+          </div>
+        </div>
         <div className="comfort-detail"><div className="comfort-detail-label">Temp Zone</div><div className="comfort-detail-value" style={{ color: tz.color }}>{tz.text}</div><div className="comfort-detail-hint">Ideal: 20 – 26 °C</div></div>
         <div className="comfort-detail"><div className="comfort-detail-label">Humidity Zone</div><div className="comfort-detail-value" style={{ color: hz.color }}>{hz.text}</div><div className="comfort-detail-hint">Ideal: 30 – 60 %</div></div>
       </div>

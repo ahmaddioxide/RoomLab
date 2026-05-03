@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiGet } from '../api';
+import { apiGet, fetchDailyStats } from '../api';
 import { RANGES, ROOM_CONFIG } from '../config';
 import { bucketize } from '../utils';
 import { useInterval } from './useInterval';
@@ -13,6 +13,7 @@ export function useRoomData(room, range) {
   const [insights30d, setInsights30d] = useState([]);
   const [compRows, setCompRows] = useState([]);
   const [presence, setPresence] = useState([]);
+  const [dailyStats, setDailyStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -46,6 +47,13 @@ export function useRoomData(room, range) {
     } catch (_) {}
   }, [cfg.table]);
 
+  const loadDailyStats = useCallback(async () => {
+    try {
+      const resp = await fetchDailyStats(cfg.table, 30);
+      setDailyStats(resp.data || []);
+    } catch (_) {}
+  }, [cfg.table]);
+
   const loadPresence = useCallback(async () => {
     if (room !== 'room2') return;
     try {
@@ -64,9 +72,9 @@ export function useRoomData(room, range) {
   // Initial load
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadRange(), loadInsights(), loadPresence(), fetchLatest()])
+    Promise.all([loadRange(), loadInsights(), loadPresence(), fetchLatest(), loadDailyStats()])
       .finally(() => setLoading(false));
-  }, [loadRange, loadInsights, loadPresence, fetchLatest]);
+  }, [loadRange, loadInsights, loadPresence, fetchLatest, loadDailyStats]);
 
   // Reload range when range changes
   useEffect(() => { loadRange(); }, [loadRange]);
@@ -79,7 +87,7 @@ export function useRoomData(room, range) {
     if (range === '1h' || range === '6h') loadRange();
   }, 45000);
 
-  return { rangeData, bucketed, latest, insights7d, insights30d, compRows, presence, loading, error };
+  return { rangeData, bucketed, latest, insights7d, insights30d, compRows, presence, dailyStats, loading, error };
 }
 
 export function useCombinedData(range) {
@@ -87,20 +95,26 @@ export function useCombinedData(range) {
   const [room2, setRoom2] = useState(null);
   const [r1Range, setR1Range] = useState([]);
   const [r2Range, setR2Range] = useState([]);
+  const [r1Insights7d, setR1Insights7d] = useState([]);
+  const [r2Insights7d, setR2Insights7d] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       const rcfg = RANGES[range];
-      const [comb, r1, r2] = await Promise.all([
+      const [comb, r1, r2, i1, i2] = await Promise.all([
         apiGet('/combined'),
         apiGet('/range', { range, table: 'room_monitor' }),
         apiGet('/range', { range, table: 'esp32_monitor' }),
+        apiGet('/insights', { days: 7, table: 'room_monitor' }),
+        apiGet('/insights', { days: 7, table: 'esp32_monitor' }),
       ]);
       setRoom1(comb.room1);
       setRoom2(comb.room2);
       setR1Range(bucketize(r1.data || [], rcfg.bucketMin, 'gas_level'));
       setR2Range(bucketize(r2.data || [], rcfg.bucketMin, 'air_quality'));
+      setR1Insights7d(i1.data || []);
+      setR2Insights7d(i2.data || []);
     } catch (_) {}
     setLoading(false);
   }, [range]);
@@ -108,5 +122,7 @@ export function useCombinedData(range) {
   useEffect(() => { load(); }, [load]);
   useInterval(load, 45000);
 
-  return { room1, room2, r1Range, r2Range, loading };
+  return { room1, room2, r1Range, r2Range, r1Insights7d, r2Insights7d, loading };
 }
+
+

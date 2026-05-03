@@ -36,13 +36,17 @@ export default function Heatmap({ rows, accentRgb = '45,212,191' }) {
             {Array.from({ length: 24 }, (_, h) => {
               const cell = grid[`${di}-${h}`];
               let bg, tip;
+              const active = cell && cell.motion > 0;
               if (!cell || cell.total === 0) {
                 bg = 'rgba(31,38,48,0.5)';
                 tip = `${dayLabels[di]} ${hourAmPm(h)} — no data`;
+              } else if (!active) {
+                bg = `rgba(${accentRgb},0.08)`;
+                tip = `${dayLabels[di]} ${hourAmPm(h)} — present, no motion`;
               } else {
-                const ratio = cell.motion / cell.total;
-                bg = `rgba(${accentRgb},${(ratio * 0.85 + 0.05).toFixed(2)})`;
-                tip = `${dayLabels[di]} ${hourAmPm(h)} — ${Math.round(ratio * 100)}% active`;
+                const intensity = Math.min(cell.motion / 4, 1) * 0.65 + 0.2;
+                bg = `rgba(${accentRgb},${intensity.toFixed(2)})`;
+                tip = `${dayLabels[di]} ${hourAmPm(h)} — ${cell.motion} motion event${cell.motion > 1 ? 's' : ''}`;
               }
               return <div key={h} className="heatmap-cell" style={{ background: bg }} data-tooltip={tip} />;
             })}
